@@ -30,6 +30,9 @@ python run_tests.py unit
 # Run integration tests only
 python run_tests.py integration
 
+# Run file upload integration tests only
+python run_tests.py file_upload
+
 # Run tests with coverage
 python run_tests.py coverage
 
@@ -116,6 +119,20 @@ make type-check
 - **Purpose**: Test actual API interactions
 - **Requirements**: Valid API key set as `BLAAIZ_API_KEY` environment variable
 - **Run with**: `pytest -m integration`
+
+### File Upload Integration Tests
+- **Location**: `tests/test_integration.py` (specific test methods)
+- **Purpose**: Test complete file upload workflows including KYC document uploads
+- **Requirements**: 
+  - Valid API key set as `BLAAIZ_API_KEY` environment variable
+  - Optional: `tests/blank.pdf` file for real file upload testing
+- **Run with**: `python run_tests.py file_upload`
+- **Tests Include**:
+  - Complete workflow (customer creation + file upload)
+  - Multiple file formats (PDF, JPEG, PNG)
+  - All file categories (identity, proof_of_address, liveness_check)
+  - Error handling for invalid inputs
+  - Real PDF file upload using `tests/blank.pdf`
 
 ## Environment Variables
 

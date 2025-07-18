@@ -3,6 +3,18 @@
 Test runner for Blaaiz Python SDK
 
 This script provides a simple way to run tests without installing pytest globally.
+
+Usage:
+    python run_tests.py [test_type]
+    
+Available test types:
+    unit         - Run unit tests only
+    integration  - Run integration tests only  
+    file_upload  - Run file upload integration tests only
+    coverage     - Run tests with coverage
+    lint         - Run linting checks
+    format       - Run code formatting
+    all          - Run all tests and checks (default)
 """
 
 import sys
@@ -54,12 +66,18 @@ def main():
     # Run tests based on command line arguments
     test_type = sys.argv[1] if len(sys.argv) > 1 else 'all'
     
-    if test_type == 'unit':
+    if test_type in ['--help', '-h', 'help']:
+        print(__doc__)
+        return 0
+    elif test_type == 'unit':
         print("Running unit tests only...")
         success = run_unit_tests()
     elif test_type == 'integration':
         print("Running integration tests only...")
         success = run_integration_tests()
+    elif test_type == 'file_upload':
+        print("Running file upload integration tests only...")
+        success = run_file_upload_tests()
     elif test_type == 'coverage':
         print("Running tests with coverage...")
         success = run_coverage_tests()
@@ -74,7 +92,7 @@ def main():
         success = run_all_tests()
     else:
         print(f"Unknown test type: {test_type}")
-        print("Available options: unit, integration, coverage, lint, format, all")
+        print("Available options: unit, integration, file_upload, coverage, lint, format, all")
         return 1
     
     return 0 if success else 1
@@ -111,6 +129,46 @@ def run_integration_tests():
         return result.wasSuccessful()
     except ImportError as e:
         print(f"Error importing integration tests: {e}")
+        return False
+
+def run_file_upload_tests():
+    """Run file upload integration tests only."""
+    if not os.getenv('BLAAIZ_API_KEY'):
+        print("ERROR: BLAAIZ_API_KEY not set. File upload tests require a valid API key.")
+        print("Set BLAAIZ_API_KEY environment variable to run file upload tests.")
+        return False
+    
+    # Check if blank.pdf exists
+    pdf_path = Path("tests/blank.pdf")
+    if not pdf_path.exists():
+        print("WARNING: blank.pdf not found in tests directory")
+        print("Some file upload tests will be skipped")
+    
+    print(f"API Key: {os.getenv('BLAAIZ_API_KEY')[:8]}...")
+    
+    try:
+        import unittest
+        # Run only file upload tests
+        suite = unittest.TestSuite()
+        from tests.test_integration import TestBlaaizIntegration
+        
+        # Add only file upload tests
+        test_names = [
+            'test_file_upload_complete_workflow',
+            'test_file_upload_with_different_formats', 
+            'test_file_upload_error_handling',
+            'test_file_upload_with_real_pdf',
+            'test_file_upload_comprehensive_workflow'
+        ]
+        
+        for test_name in test_names:
+            suite.addTest(TestBlaaizIntegration(test_name))
+        
+        runner = unittest.TextTestRunner(verbosity=2)
+        result = runner.run(suite)
+        return result.wasSuccessful()
+    except ImportError as e:
+        print(f"Error importing file upload tests: {e}")
         return False
 
 def run_coverage_tests():
@@ -191,6 +249,12 @@ def run_all_tests():
     
     print("\nStep 3: Running integration tests...")
     success &= run_integration_tests()
+    
+    print("\nStep 4: Running file upload tests...")
+    if os.getenv('BLAAIZ_API_KEY'):
+        success &= run_file_upload_tests()
+    else:
+        print("Skipping file upload tests - BLAAIZ_API_KEY not set")
     
     if success:
         print("\n🎉 All tests and checks passed!")
