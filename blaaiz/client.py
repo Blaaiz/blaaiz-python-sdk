@@ -34,7 +34,7 @@ class BlaaizAPIClient:
             "x-blaaiz-api-key": api_key,
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "User-Agent": "Blaaiz-Python-SDK/1.0.3",
+            "User-Agent": "Blaaiz-Python-SDK/1.0.4",
         }
 
     def make_request(

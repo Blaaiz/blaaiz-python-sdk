@@ -21,7 +21,7 @@ from .services import (
     WebhookService,
 )
 
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 __author__ = "Blaaiz Team"
 __email__ = "onboarding@blaaiz.com"
 
