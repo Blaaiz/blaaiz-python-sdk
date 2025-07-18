@@ -10,10 +10,10 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9, '3.10', '3.11', '3.12']
+        python-version: [3.8, 3.9, '3.10', '3.11', '3.12']
 
     steps:
     - uses: actions/checkout@v3
@@ -54,7 +54,7 @@ jobs:
         fail_ci_if_error: false
 
   integration-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
@@ -80,7 +80,7 @@ jobs:
       if: env.BLAAIZ_API_KEY != ''
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: test
     
     steps:
@@ -111,7 +111,7 @@ jobs:
         path: dist/
 
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [test, build]
     if: github.event_name == 'release' && github.event.action == 'published'
     
