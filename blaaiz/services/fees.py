@@ -8,7 +8,7 @@ from typing import Dict, Any
 class FeesService:
     """Service for managing fees."""
 
-    def __init__(self, client):
+    def __init__(self, client: Any) -> None:
         self.client = client
 
     def get_breakdown(self, fee_data: Dict[str, Any]) -> Dict[str, Any]:

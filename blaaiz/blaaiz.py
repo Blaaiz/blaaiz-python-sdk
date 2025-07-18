@@ -206,11 +206,11 @@ class Blaaiz:
         )
 
     # Context manager support
-    def __enter__(self):
+    def __enter__(self) -> "Blaaiz":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         pass
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Blaaiz(base_url='{self.client.base_url}')"

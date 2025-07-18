@@ -8,7 +8,7 @@ from typing import Dict, Any
 class FileService:
     """Service for managing files."""
 
-    def __init__(self, client):
+    def __init__(self, client: Any) -> None:
         self.client = client
 
     def get_presigned_url(self, file_data: Dict[str, Any]) -> Dict[str, Any]:

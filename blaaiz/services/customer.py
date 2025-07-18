@@ -14,7 +14,7 @@ from ..error import BlaaizError
 class CustomerService:
     """Service for managing customers."""
 
-    def __init__(self, client):
+    def __init__(self, client: Any) -> None:
         self.client = client
 
     def create(self, customer_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -197,7 +197,7 @@ class CustomerService:
         self, file_content: Union[bytes, str], content_type: Optional[str], filename: Optional[str]
     ) -> Dict[str, Any]:
         """Process file content from various formats."""
-        result = {"filename": filename, "content_type": content_type}
+        result: Dict[str, Any] = {"filename": filename, "content_type": content_type}
 
         if isinstance(file_content, bytes):
             result["data"] = file_content
@@ -287,7 +287,7 @@ class CustomerService:
         file_data: bytes,
         content_type: Optional[str],
         filename: Optional[str],
-    ):
+    ) -> None:
         """Upload file to S3 using presigned URL."""
         headers = {"Content-Length": str(len(file_data))}
 

@@ -8,7 +8,7 @@ from typing import Dict, Any
 class CollectionService:
     """Service for managing collections."""
 
-    def __init__(self, client):
+    def __init__(self, client: Any) -> None:
         self.client = client
 
     def initiate(self, collection_data: Dict[str, Any]) -> Dict[str, Any]:

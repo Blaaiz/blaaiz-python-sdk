@@ -11,7 +11,7 @@ from typing import Dict, Any, Union
 class WebhookService:
     """Service for managing webhooks."""
 
-    def __init__(self, client):
+    def __init__(self, client: Any) -> None:
         self.client = client
 
     def register(self, webhook_data: Dict[str, Any]) -> Dict[str, Any]:

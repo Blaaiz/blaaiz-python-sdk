@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional
 class TransactionService:
     """Service for managing transactions."""
 
-    def __init__(self, client):
+    def __init__(self, client: Any) -> None:
         self.client = client
 
     def list(self, filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:

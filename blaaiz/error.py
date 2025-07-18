@@ -2,11 +2,13 @@
 Blaaiz Error Classes
 """
 
+from typing import Optional
+
 
 class BlaaizError(Exception):
     """Base exception class for Blaaiz API errors."""
 
-    def __init__(self, message: str, status: int = None, code: str = None):
+    def __init__(self, message: str, status: Optional[int] = None, code: Optional[str] = None):
         """
         Initialize a Blaaiz error.
 
@@ -20,7 +22,7 @@ class BlaaizError(Exception):
         self.status = status
         self.code = code
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.status and self.code:
             return f"BlaaizError({self.status}, {self.code}): {self.message}"
         elif self.status:
@@ -28,5 +30,5 @@ class BlaaizError(Exception):
         else:
             return f"BlaaizError: {self.message}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"BlaaizError(message='{self.message}', status={self.status}, code='{self.code}')"

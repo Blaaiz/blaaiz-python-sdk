@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional
 class VirtualBankAccountService:
     """Service for managing virtual bank accounts."""
 
-    def __init__(self, client):
+    def __init__(self, client: Any) -> None:
         self.client = client
 
     def create(self, vba_data: Dict[str, Any]) -> Dict[str, Any]:
