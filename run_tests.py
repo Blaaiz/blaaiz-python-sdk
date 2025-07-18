@@ -105,7 +105,7 @@ def run_integration_tests():
         # Run only integration tests
         suite = unittest.TestSuite()
         from tests.test_integration import TestBlaaizIntegration
-        suite.addTest(unittest.makeSuite(TestBlaaizIntegration))
+        suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestBlaaizIntegration))
         runner = unittest.TextTestRunner(verbosity=2)
         result = runner.run(suite)
         return result.wasSuccessful()
