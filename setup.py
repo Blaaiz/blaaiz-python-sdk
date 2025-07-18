@@ -10,7 +10,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="blaaiz-python-sdk",
-    version="1.0.4",
+    version="1.0.5",
     author="Blaaiz Team",
     author_email="onboarding@blaaiz.com",
     description="A comprehensive Python SDK for the Blaaiz RaaS (Remittance as a Service) API",
