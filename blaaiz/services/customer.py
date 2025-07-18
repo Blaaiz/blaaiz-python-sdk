@@ -170,7 +170,11 @@ class CustomerService:
             )
 
             # Handle API response structure: {"data": {"message": "...", "file_id": "...", "url": "..."}}
-            if "data" in presigned_response and "url" in presigned_response["data"] and "file_id" in presigned_response["data"]:
+            if (
+                "data" in presigned_response
+                and "url" in presigned_response["data"]
+                and "file_id" in presigned_response["data"]
+            ):
                 # Structure: {"data": {"message": "...", "file_id": "...", "url": "..."}}
                 presigned_url = presigned_response["data"]["url"]
                 file_id = presigned_response["data"]["file_id"]
@@ -211,11 +215,11 @@ class CustomerService:
                 "liveness_check": "liveness_check_file",
                 "proof_of_address": "proof_of_address_file",
             }
-            
+
             file_field_name = file_field_mapping.get(file_category)
             if not file_field_name:
                 raise BlaaizError(f"Unknown file category: {file_category}")
-            
+
             file_association = self.client.make_request(
                 "POST", f"/api/external/customer/{customer_id}/files", {file_field_name: file_id}
             )
@@ -345,12 +349,12 @@ class CustomerService:
             with urllib.request.urlopen(req, timeout=30) as response:
                 if response.status < 200 or response.status >= 300:
                     raise BlaaizError(f"S3 upload failed with status {response.status}")
-                
+
                 # Verify S3 upload success by checking for ETag
                 etag = response.headers.get("ETag")
                 if not etag:
                     raise BlaaizError("S3 upload failed: No ETag received from S3")
-                
+
         except urllib.error.URLError as e:
             raise BlaaizError(f"S3 upload request failed: {str(e)}")
         except Exception as e:
