@@ -134,6 +134,7 @@ jobs:
     
     - name: Publish to PyPI
       env:
+        BLAAIZ_API_KEY: ${{ secrets.BLAAIZ_API_KEY }}
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
       run: |
