@@ -4,7 +4,6 @@ Customer Service
 
 import base64
 import os
-import tempfile
 import urllib.request
 import urllib.error
 from typing import Dict, Any, Optional, Union
@@ -161,6 +160,7 @@ class CustomerService:
                 "file_category must be one of: identity, proof_of_address, liveness_check"
             )
 
+        presigned_response = None
         try:
             # Step 1: Get presigned URL
             presigned_response = self.client.make_request(
@@ -169,8 +169,25 @@ class CustomerService:
                 {"customer_id": customer_id, "file_category": file_category},
             )
 
-            presigned_url = presigned_response["data"]["data"]["url"]
-            file_id = presigned_response["data"]["data"]["file_id"]
+            # Handle API response structure: {"message": "...", "file_id": "...", "url": "..."}
+            if "url" in presigned_response and "file_id" in presigned_response:
+                # Direct structure from API docs
+                presigned_url = presigned_response["url"]
+                file_id = presigned_response["file_id"]
+            elif "data" in presigned_response:
+                if "data" in presigned_response["data"]:
+                    # Nested structure: {"data": {"data": {"url": "...", "file_id": "..."}}}
+                    presigned_url = presigned_response["data"]["data"]["url"]
+                    file_id = presigned_response["data"]["data"]["file_id"]
+                else:
+                    # Structure: {"data": {"url": "...", "file_id": "..."}}
+                    presigned_url = presigned_response["data"]["url"]
+                    file_id = presigned_response["data"]["file_id"]
+            else:
+                raise BlaaizError(
+                    f"Invalid presigned URL response structure. "
+                    f"Expected 'url' and 'file_id' keys. Got: {presigned_response}"
+                )
 
             # Step 2: Process file content
             file_buffer = self._process_file_content(file_content, content_type, filename)
@@ -188,10 +205,20 @@ class CustomerService:
                 "PUT", f"/api/external/customer/{customer_id}/files", {"id_file": file_id}
             )
 
-            return {**file_association, "file_id": file_id, "presigned_url": presigned_url}
+            return {
+                **file_association,
+                "file_id": file_id,
+                "presigned_url": presigned_url,
+            }
 
         except Exception as e:
-            raise BlaaizError(f"File upload failed: {str(e)}")
+            # Provide better error information for debugging
+            if isinstance(e, BlaaizError):
+                # Re-raise BlaaizError as-is (already has good error message)
+                raise e
+            else:
+                # Wrap other exceptions with context
+                raise BlaaizError(f"File upload failed: {str(e)}")
 
     def _process_file_content(
         self, file_content: Union[bytes, str], content_type: Optional[str], filename: Optional[str]
