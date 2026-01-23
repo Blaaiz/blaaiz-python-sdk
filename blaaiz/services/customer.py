@@ -27,8 +27,6 @@ class CustomerService:
             API response containing customer data
         """
         required_fields = [
-            "first_name",
-            "last_name",
             "type",
             "email",
             "country",
@@ -40,7 +38,13 @@ class CustomerService:
             if field not in customer_data or not customer_data[field]:
                 raise ValueError(f"{field} is required")
 
-        if customer_data["type"] == "business" and not customer_data.get("business_name"):
+        # Conditional validation based on customer type
+        if customer_data["type"] == "individual":
+            if not customer_data.get("first_name"):
+                raise ValueError("first_name is required when type is individual")
+            if not customer_data.get("last_name"):
+                raise ValueError("last_name is required when type is individual")
+        elif customer_data["type"] == "business" and not customer_data.get("business_name"):
             raise ValueError("business_name is required when type is business")
 
         return self.client.make_request("POST", "/api/external/customer", customer_data)
@@ -119,6 +123,42 @@ class CustomerService:
 
         return self.client.make_request(
             "PUT", f"/api/external/customer/{customer_id}/files", file_data
+        )
+
+    def list_beneficiaries(self, customer_id: str) -> Dict[str, Any]:
+        """
+        List all beneficiaries for a customer.
+
+        Args:
+            customer_id: Customer ID
+
+        Returns:
+            API response containing list of beneficiaries
+        """
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+
+        return self.client.make_request("GET", f"/api/external/customer/{customer_id}/beneficiary")
+
+    def get_beneficiary(self, customer_id: str, beneficiary_id: str) -> Dict[str, Any]:
+        """
+        Get a specific beneficiary for a customer.
+
+        Args:
+            customer_id: Customer ID
+            beneficiary_id: Beneficiary ID
+
+        Returns:
+            API response containing beneficiary data
+        """
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+
+        if not beneficiary_id:
+            raise ValueError("Beneficiary ID is required")
+
+        return self.client.make_request(
+            "GET", f"/api/external/customer/{customer_id}/beneficiary/{beneficiary_id}"
         )
 
     def upload_file_complete(
@@ -278,7 +318,7 @@ class CustomerService:
     def _download_file(self, url: str) -> Dict[str, Any]:
         """Download file from URL."""
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Blaaiz-Python-SDK/1.0.5"})
+            req = urllib.request.Request(url, headers={"User-Agent": "Blaaiz-Python-SDK/1.1.0"})
 
             with urllib.request.urlopen(req, timeout=30) as response:
                 if response.status >= 300:

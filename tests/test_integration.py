@@ -126,25 +126,31 @@ class TestBlaaizIntegration(unittest.TestCase):
         """Test webhook signature verification."""
         payload = '{"transaction_id": "test-123", "status": "completed"}'
         secret = "test-webhook-secret"
+        timestamp = "1706000000"  # Example timestamp
 
-        # Generate a valid signature
+        # Generate a valid signature using timestamp.payload format
         import hmac
         import hashlib
 
+        signed_payload = f"{timestamp}.{payload}"
         valid_signature = hmac.new(
-            secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
+            secret.encode("utf-8"), signed_payload.encode("utf-8"), hashlib.sha256
         ).hexdigest()
 
         # Test valid signature
-        is_valid = self.blaaiz.webhooks.verify_signature(payload, valid_signature, secret)
+        is_valid = self.blaaiz.webhooks.verify_signature(
+            payload, valid_signature, timestamp, secret
+        )
         self.assertTrue(is_valid)
 
         # Test invalid signature
-        is_invalid = self.blaaiz.webhooks.verify_signature(payload, "invalid-signature", secret)
+        is_invalid = self.blaaiz.webhooks.verify_signature(
+            payload, "invalid-signature", timestamp, secret
+        )
         self.assertFalse(is_invalid)
 
         # Test construct event
-        event = self.blaaiz.webhooks.construct_event(payload, valid_signature, secret)
+        event = self.blaaiz.webhooks.construct_event(payload, valid_signature, timestamp, secret)
         self.assertEqual(event["transaction_id"], "test-123")
         self.assertEqual(event["status"], "completed")
         self.assertTrue(event["verified"])
@@ -192,61 +198,63 @@ class TestBlaaizIntegration(unittest.TestCase):
             self.assertIsInstance(e, (BlaaizError, ValueError, TypeError))
 
     def test_file_upload_complete_workflow(self):
-        """Test complete file upload workflow: create customer, upload file."""
-        # First, create a test customer
-        customer_data = {
-            "first_name": "Integration",
-            "last_name": "Test",
-            "email": f"integration.test.{os.urandom(4).hex()}@example.com",
-            "type": "individual",
-            "country": "NG",
-            "id_type": "passport",
-            "id_number": f"A{os.urandom(4).hex().upper()}",
-        }
+        """Test complete file upload workflow: create customer, upload file.
 
-        customer = None
-        try:
-            # Create customer
-            customer_response = self.blaaiz.customers.create(customer_data)
-            self.assertIsInstance(customer_response, dict)
-            self.assertIn("data", customer_response)
+        Note: Each file category requires a fresh customer because the API
+        does not allow file uploads for verified customers.
+        """
+        # Create test files for different categories
+        test_files = [
+            {
+                "category": "identity",
+                "filename": "test_passport.pdf",
+                "content": b"Test passport document content",
+                "content_type": "application/pdf",
+            },
+            {
+                "category": "proof_of_address",
+                "filename": "test_address.jpg",
+                "content": b"Test address proof image content",
+                "content_type": "image/jpeg",
+            },
+            {
+                "category": "liveness_check",
+                "filename": "test_selfie.png",
+                "content": b"Test liveness check image content",
+                "content_type": "image/png",
+            },
+        ]
 
-            # Extract customer ID (handle nested structure)
-            customer_data_obj = customer_response["data"]
-            if isinstance(customer_data_obj, dict) and "data" in customer_data_obj:
-                customer = customer_data_obj["data"]
-            else:
-                customer = customer_data_obj
+        # Test file upload for each category (with fresh customer each time)
+        for file_info in test_files:
+            with self.subTest(category=file_info["category"]):
+                try:
+                    # Create a fresh customer for each file category
+                    customer_data = {
+                        "first_name": "Integration",
+                        "last_name": "Test",
+                        "email": f"integration.test.{os.urandom(4).hex()}@example.com",
+                        "type": "individual",
+                        "country": "NG",
+                        "id_type": "passport",
+                        "id_number": f"A{os.urandom(4).hex().upper()}",
+                    }
 
-            self.assertIsInstance(customer, dict)
-            self.assertIn("id", customer)
-            customer_id = customer["id"]
+                    customer_response = self.blaaiz.customers.create(customer_data)
+                    self.assertIsInstance(customer_response, dict)
+                    self.assertIn("data", customer_response)
 
-            # Create test files for different categories
-            test_files = [
-                {
-                    "category": "identity",
-                    "filename": "test_passport.pdf",
-                    "content": b"Test passport document content",
-                    "content_type": "application/pdf",
-                },
-                {
-                    "category": "proof_of_address",
-                    "filename": "test_address.jpg",
-                    "content": b"Test address proof image content",
-                    "content_type": "image/jpeg",
-                },
-                {
-                    "category": "liveness_check",
-                    "filename": "test_selfie.png",
-                    "content": b"Test liveness check image content",
-                    "content_type": "image/png",
-                },
-            ]
+                    # Extract customer ID (handle nested structure)
+                    customer_data_obj = customer_response["data"]
+                    if isinstance(customer_data_obj, dict) and "data" in customer_data_obj:
+                        customer = customer_data_obj["data"]
+                    else:
+                        customer = customer_data_obj
 
-            # Test file upload for each category
-            for file_info in test_files:
-                with self.subTest(category=file_info["category"]):
+                    self.assertIsInstance(customer, dict)
+                    self.assertIn("id", customer)
+                    customer_id = customer["id"]
+
                     file_options = {
                         "file": file_info["content"],
                         "file_category": file_info["category"],
@@ -274,58 +282,62 @@ class TestBlaaizIntegration(unittest.TestCase):
                     self.assertIsInstance(presigned_url, str)
                     self.assertTrue(presigned_url.startswith("https://"))
 
-        except BlaaizError as e:
-            self.fail(f"File upload integration test failed: {e.message}")
-        except Exception as e:
-            self.fail(f"Unexpected error in file upload test: {str(e)}")
+                except BlaaizError as e:
+                    # Skip if customer gets verified before we can upload
+                    if "verified customer" in e.message.lower():
+                        self.skipTest(f"API limitation: {e.message}")
+                    else:
+                        self.fail(f"File upload integration test failed: {e.message}")
+                except Exception as e:
+                    self.fail(f"Unexpected error in file upload test: {str(e)}")
 
     def test_file_upload_with_different_formats(self):
         """Test file upload with different file formats and content types."""
-        # Create a test customer first
-        customer_data = {
-            "first_name": "FileTest",
-            "last_name": "User",
-            "email": f"filetest.{os.urandom(4).hex()}@example.com",
-            "type": "individual",
-            "country": "NG",
-            "id_type": "passport",
-            "id_number": f"A{os.urandom(4).hex().upper()}",
-        }
+        # Test different file formats - each with a fresh customer
+        # (API restriction: cannot upload files for verified customers)
+        test_cases = [
+            {
+                "name": "PDF Document",
+                "content": b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+                "filename": "document.pdf",
+                "content_type": "application/pdf",
+            },
+            {
+                "name": "JPEG Image",
+                "content": b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb",
+                "filename": "image.jpg",
+                "content_type": "image/jpeg",
+            },
+            {
+                "name": "PNG Image",
+                "content": b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01",
+                "filename": "image.png",
+                "content_type": "image/png",
+            },
+        ]
 
-        try:
-            # Create customer
-            customer_response = self.blaaiz.customers.create(customer_data)
-            customer_data_obj = customer_response["data"]
-            if isinstance(customer_data_obj, dict) and "data" in customer_data_obj:
-                customer = customer_data_obj["data"]
-            else:
-                customer = customer_data_obj
-            customer_id = customer["id"]
+        for test_case in test_cases:
+            with self.subTest(format=test_case["name"]):
+                try:
+                    # Create a fresh customer for each file format test
+                    customer_data = {
+                        "first_name": "FileTest",
+                        "last_name": "User",
+                        "email": f"filetest.{os.urandom(4).hex()}@example.com",
+                        "type": "individual",
+                        "country": "NG",
+                        "id_type": "passport",
+                        "id_number": f"A{os.urandom(4).hex().upper()}",
+                    }
 
-            # Test different file formats
-            test_cases = [
-                {
-                    "name": "PDF Document",
-                    "content": b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
-                    "filename": "document.pdf",
-                    "content_type": "application/pdf",
-                },
-                {
-                    "name": "JPEG Image",
-                    "content": b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb",
-                    "filename": "image.jpg",
-                    "content_type": "image/jpeg",
-                },
-                {
-                    "name": "PNG Image",
-                    "content": b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01",
-                    "filename": "image.png",
-                    "content_type": "image/png",
-                },
-            ]
+                    customer_response = self.blaaiz.customers.create(customer_data)
+                    customer_data_obj = customer_response["data"]
+                    if isinstance(customer_data_obj, dict) and "data" in customer_data_obj:
+                        customer = customer_data_obj["data"]
+                    else:
+                        customer = customer_data_obj
+                    customer_id = customer["id"]
 
-            for test_case in test_cases:
-                with self.subTest(format=test_case["name"]):
                     file_options = {
                         "file": test_case["content"],
                         "file_category": "identity",
@@ -343,14 +355,14 @@ class TestBlaaizIntegration(unittest.TestCase):
                     self.assertIn("file_id", upload_result)
                     self.assertIn("presigned_url", upload_result)
 
-        except BlaaizError as e:
-            # Skip if API doesn't support multiple uploads for same customer
-            if "already exists" in e.message.lower() or "duplicate" in e.message.lower():
-                self.skipTest(f"API limitation: {e.message}")
-            else:
-                self.fail(f"File format test failed: {e.message}")
-        except Exception as e:
-            self.fail(f"Unexpected error in file format test: {str(e)}")
+                except BlaaizError as e:
+                    # Skip if customer gets verified before we can upload
+                    if "verified customer" in e.message.lower():
+                        self.skipTest(f"API limitation: {e.message}")
+                    else:
+                        self.fail(f"File format test failed: {e.message}")
+                except Exception as e:
+                    self.fail(f"Unexpected error in file format test: {str(e)}")
 
     def test_file_upload_error_handling(self):
         """Test file upload error handling for invalid inputs."""
@@ -488,7 +500,11 @@ class TestBlaaizIntegration(unittest.TestCase):
             self.fail(f"Unexpected error in real PDF test: {str(e)}")
 
     def test_file_upload_comprehensive_workflow(self):
-        """Test comprehensive file upload workflow with multiple files and categories."""
+        """Test comprehensive file upload workflow with multiple file categories.
+
+        Note: Each file category requires a fresh customer because the API
+        does not allow file uploads for verified customers.
+        """
         # Get the path to the blank.pdf file
         test_dir = Path(__file__).parent
         pdf_path = test_dir / "blank.pdf"
@@ -496,61 +512,61 @@ class TestBlaaizIntegration(unittest.TestCase):
         if not pdf_path.exists():
             self.skipTest("blank.pdf not found in tests directory")
 
-        # Create a test customer
-        customer_data = {
-            "first_name": "Comprehensive",
-            "last_name": "Test",
-            "email": f"comprehensive.{os.urandom(4).hex()}@example.com",
-            "type": "individual",
-            "country": "NG",
-            "id_type": "passport",
-            "id_number": f"A{os.urandom(4).hex().upper()}",
-        }
+        # Read the actual PDF file
+        with open(pdf_path, "rb") as f:
+            pdf_content = f.read()
 
-        try:
-            # Create customer
-            customer_response = self.blaaiz.customers.create(customer_data)
-            customer_data_obj = customer_response["data"]
-            if isinstance(customer_data_obj, dict) and "data" in customer_data_obj:
-                customer = customer_data_obj["data"]
-            else:
-                customer = customer_data_obj
-            customer_id = customer["id"]
+        # Test files: mix of real PDF and synthetic content
+        # Each file gets its own customer (API restriction: cannot upload for verified customers)
+        test_files = [
+            {
+                "name": "Real PDF Document",
+                "category": "identity",
+                "filename": "passport.pdf",
+                "content": pdf_content,
+                "content_type": "application/pdf",
+            },
+            {
+                "name": "Synthetic JPEG",
+                "category": "liveness_check",
+                "filename": "selfie.jpg",
+                "content": b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.' \",#\x1c\x1c(7),01444\x1f'9=82<.342\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x15\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xaa\xff\xd9",
+                "content_type": "image/jpeg",
+            },
+            {
+                "name": "Synthetic PNG",
+                "category": "proof_of_address",
+                "filename": "address_proof.png",
+                "content": b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00IEND\xaeB`\x82",
+                "content_type": "image/png",
+            },
+        ]
 
-            # Read the actual PDF file
-            with open(pdf_path, "rb") as f:
-                pdf_content = f.read()
+        uploaded_files = []
 
-            # Test files: mix of real PDF and synthetic content
-            test_files = [
-                {
-                    "name": "Real PDF Document",
-                    "category": "identity",
-                    "filename": "passport.pdf",
-                    "content": pdf_content,
-                    "content_type": "application/pdf",
-                },
-                {
-                    "name": "Synthetic JPEG",
-                    "category": "liveness_check",
-                    "filename": "selfie.jpg",
-                    "content": b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.' \",#\x1c\x1c(7),01444\x1f'9=82<.342\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x15\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xaa\xff\xd9",
-                    "content_type": "image/jpeg",
-                },
-                {
-                    "name": "Synthetic PNG",
-                    "category": "proof_of_address",
-                    "filename": "address_proof.png",
-                    "content": b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00IEND\xaeB`\x82",
-                    "content_type": "image/png",
-                },
-            ]
+        # Upload each file with a fresh customer
+        for file_info in test_files:
+            with self.subTest(file=file_info["name"]):
+                try:
+                    # Create a fresh customer for each file
+                    customer_data = {
+                        "first_name": "Comprehensive",
+                        "last_name": "Test",
+                        "email": f"comprehensive.{os.urandom(4).hex()}@example.com",
+                        "type": "individual",
+                        "country": "NG",
+                        "id_type": "passport",
+                        "id_number": f"A{os.urandom(4).hex().upper()}",
+                    }
 
-            uploaded_files = []
+                    customer_response = self.blaaiz.customers.create(customer_data)
+                    customer_data_obj = customer_response["data"]
+                    if isinstance(customer_data_obj, dict) and "data" in customer_data_obj:
+                        customer = customer_data_obj["data"]
+                    else:
+                        customer = customer_data_obj
+                    customer_id = customer["id"]
 
-            # Upload each file
-            for file_info in test_files:
-                with self.subTest(file=file_info["name"]):
                     file_options = {
                         "file": file_info["content"],
                         "file_category": file_info["category"],
@@ -573,35 +589,32 @@ class TestBlaaizIntegration(unittest.TestCase):
                             "file_id": upload_result["file_id"],
                             "category": file_info["category"],
                             "size": len(file_info["content"]),
+                            "customer_id": customer_id,
                         }
                     )
 
-            # Verify all files were uploaded
-            self.assertEqual(len(uploaded_files), 3)
+                except BlaaizError as e:
+                    # Skip if customer gets verified before we can upload
+                    if "verified customer" in e.message.lower():
+                        self.skipTest(f"API limitation: {e.message}")
+                    else:
+                        self.fail(f"Comprehensive upload test failed: {e.message}")
 
-            # Verify different categories were used
-            categories = [f["category"] for f in uploaded_files]
-            self.assertIn("identity", categories)
-            self.assertIn("liveness_check", categories)
-            self.assertIn("proof_of_address", categories)
+        # Verify all files were uploaded
+        self.assertEqual(len(uploaded_files), 3)
 
-            # Print summary
+        # Verify different categories were used
+        categories = [f["category"] for f in uploaded_files]
+        self.assertIn("identity", categories)
+        self.assertIn("liveness_check", categories)
+        self.assertIn("proof_of_address", categories)
+
+        # Print summary
+        print(f"✅ Successfully uploaded {len(uploaded_files)} files")
+        for file_info in uploaded_files:
             print(
-                f"✅ Successfully uploaded {len(uploaded_files)} files for customer {customer_id}"
+                f"  - {file_info['name']} ({file_info['category']}): {file_info['size']} bytes -> {file_info['file_id']}"
             )
-            for file_info in uploaded_files:
-                print(
-                    f"  - {file_info['name']} ({file_info['category']}): {file_info['size']} bytes -> {file_info['file_id']}"
-                )
-
-        except BlaaizError as e:
-            # Skip if API has limitations on multiple uploads
-            if "already exists" in e.message.lower() or "duplicate" in e.message.lower():
-                self.skipTest(f"API limitation for multiple uploads: {e.message}")
-            else:
-                self.fail(f"Comprehensive upload test failed: {e.message}")
-        except Exception as e:
-            self.fail(f"Unexpected error in comprehensive test: {str(e)}")
 
 
 if __name__ == "__main__":

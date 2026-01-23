@@ -52,13 +52,29 @@ class TestCustomerService(unittest.TestCase):
         """Test customer creation with missing fields."""
         customer_data = {
             "first_name": "John",
-            # Missing required fields
+            # Missing required fields like type, email, country
         }
 
         with self.assertRaises(ValueError) as context:
             self.service.create(customer_data)
 
-        self.assertIn("last_name is required", str(context.exception))
+        self.assertIn("type is required", str(context.exception))
+
+    def test_create_individual_customer_missing_name(self):
+        """Test individual customer creation without required name fields."""
+        customer_data = {
+            "type": "individual",
+            "email": "john@example.com",
+            "country": "NG",
+            "id_type": "passport",
+            "id_number": "A12345678",
+            # Missing first_name and last_name
+        }
+
+        with self.assertRaises(ValueError) as context:
+            self.service.create(customer_data)
+
+        self.assertIn("first_name is required", str(context.exception))
 
     def test_create_business_customer_missing_business_name(self):
         """Test business customer creation without business name."""
@@ -116,7 +132,13 @@ class TestCollectionService(unittest.TestCase):
 
     def test_initiate_collection(self):
         """Test initiating a collection."""
-        collection_data = {"method": "card", "amount": 1000, "wallet_id": "wallet-id"}
+        collection_data = {
+            "customer_id": "customer-id",
+            "wallet_id": "wallet-id",
+            "amount": 1000,
+            "currency": "NGN",
+            "method": "card",
+        }
 
         self.mock_client.make_request.return_value = {"data": {"transaction_id": "tx-id"}}
 
@@ -131,13 +153,13 @@ class TestCollectionService(unittest.TestCase):
         """Test initiating collection with missing fields."""
         collection_data = {
             "method": "card",
-            # Missing required fields
+            # Missing required fields: customer_id, wallet_id, amount, currency
         }
 
         with self.assertRaises(ValueError) as context:
             self.service.initiate(collection_data)
 
-        self.assertIn("amount is required", str(context.exception))
+        self.assertIn("customer_id is required", str(context.exception))
 
 
 class TestPayoutService(unittest.TestCase):
@@ -152,10 +174,12 @@ class TestPayoutService(unittest.TestCase):
         """Test initiating a payout."""
         payout_data = {
             "wallet_id": "wallet-id",
+            "customer_id": "customer-id",
             "method": "bank_transfer",
             "from_amount": 1000,
-            "from_currency_id": "1",
-            "to_currency_id": "1",
+            "from_currency_id": "NGN",
+            "to_currency_id": "NGN",
+            "bank_id": "bank-id",
             "account_number": "1234567890",
         }
 
@@ -169,13 +193,16 @@ class TestPayoutService(unittest.TestCase):
         self.assertEqual(result["data"]["transaction_id"], "tx-id")
 
     def test_initiate_bank_transfer_without_account_number(self):
-        """Test bank transfer without account number."""
+        """Test bank transfer without account number for NGN."""
         payout_data = {
             "wallet_id": "wallet-id",
+            "customer_id": "customer-id",
             "method": "bank_transfer",
             "from_amount": 1000,
-            "from_currency_id": "1",
-            "to_currency_id": "1",
+            "from_currency_id": "NGN",
+            "to_currency_id": "NGN",
+            "bank_id": "bank-id",
+            # Missing account_number
         }
 
         with self.assertRaises(ValueError) as context:
@@ -187,10 +214,11 @@ class TestPayoutService(unittest.TestCase):
         """Test Interac payout without required fields."""
         payout_data = {
             "wallet_id": "wallet-id",
+            "customer_id": "customer-id",
             "method": "interac",
             "from_amount": 1000,
-            "from_currency_id": "2",
-            "to_currency_id": "2",
+            "from_currency_id": "CAD",
+            "to_currency_id": "CAD",
         }
 
         with self.assertRaises(ValueError) as context:
@@ -210,40 +238,50 @@ class TestWebhookService(unittest.TestCase):
     def test_verify_signature_valid(self):
         """Test valid signature verification."""
         payload = '{"test": "data"}'
+        timestamp = "1234567890"
         signature = "sha256=5d41402abc4b2a76b9719d911017c592"
         secret = "test-secret"
 
         # This would normally require actual HMAC calculation
         # For testing, we'll mock the internal comparison
         with unittest.mock.patch("hmac.compare_digest", return_value=True):
-            result = self.service.verify_signature(payload, signature, secret)
+            result = self.service.verify_signature(payload, signature, timestamp, secret)
             self.assertTrue(result)
 
     def test_verify_signature_invalid(self):
         """Test invalid signature verification."""
         payload = '{"test": "data"}'
+        timestamp = "1234567890"
         signature = "sha256=invalid"
         secret = "test-secret"
 
-        result = self.service.verify_signature(payload, signature, secret)
+        result = self.service.verify_signature(payload, signature, timestamp, secret)
         self.assertFalse(result)
 
     def test_verify_signature_missing_payload(self):
         """Test signature verification with missing payload."""
         with self.assertRaises(ValueError) as context:
-            self.service.verify_signature("", "signature", "secret")
+            self.service.verify_signature("", "signature", "1234567890", "secret")
 
         self.assertIn("Payload is required", str(context.exception))
+
+    def test_verify_signature_missing_timestamp(self):
+        """Test signature verification with missing timestamp."""
+        with self.assertRaises(ValueError) as context:
+            self.service.verify_signature('{"test": "data"}', "signature", "", "secret")
+
+        self.assertIn("Timestamp is required", str(context.exception))
 
     def test_construct_event_valid(self):
         """Test constructing event with valid signature."""
         payload = '{"test": "data"}'
+        timestamp = "1234567890"
         signature = "sha256=valid"
         secret = "test-secret"
 
         # Mock the verification to return True
         with unittest.mock.patch.object(self.service, "verify_signature", return_value=True):
-            result = self.service.construct_event(payload, signature, secret)
+            result = self.service.construct_event(payload, signature, timestamp, secret)
 
             self.assertEqual(result["test"], "data")
             self.assertTrue(result["verified"])
@@ -252,13 +290,14 @@ class TestWebhookService(unittest.TestCase):
     def test_construct_event_invalid_signature(self):
         """Test constructing event with invalid signature."""
         payload = '{"test": "data"}'
+        timestamp = "1234567890"
         signature = "sha256=invalid"
         secret = "test-secret"
 
         # Mock the verification to return False
         with unittest.mock.patch.object(self.service, "verify_signature", return_value=False):
             with self.assertRaises(ValueError) as context:
-                self.service.construct_event(payload, signature, secret)
+                self.service.construct_event(payload, signature, timestamp, secret)
 
             self.assertIn("Invalid webhook signature", str(context.exception))
 

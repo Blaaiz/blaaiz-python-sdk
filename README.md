@@ -53,15 +53,25 @@ print(f'API Connected: {is_connected}')
 #### Create a Customer
 
 ```python
+# Individual customer
 customer = blaaiz.customers.create({
-    'first_name': "John",
-    'last_name': "Doe",
-    'type': "individual",  # or "business"
+    'first_name': "John",  # Required for individual
+    'last_name': "Doe",    # Required for individual
+    'type': "individual",
     'email': "john.doe@example.com",
     'country': "NG",
     'id_type': "passport",  # drivers_license, passport, id_card, resident_permit
     'id_number': "A12345678",
-    # 'business_name': "Company Name"  # Required if type is "business"
+})
+
+# Business customer
+business_customer = blaaiz.customers.create({
+    'type': "business",
+    'business_name': "Company Name",  # Required for business
+    'email': "business@example.com",
+    'country': "NG",
+    'id_type': "certificate_of_incorporation",
+    'id_number': "RC123456",
 })
 
 print(f'Customer ID: {customer["data"]["data"]["id"]}')
@@ -89,6 +99,19 @@ updated_customer = blaaiz.customers.update('customer-id', {
     'email': "jane.doe@example.com"
 })
 ```
+
+#### List Customer Beneficiaries
+
+```python
+beneficiaries = blaaiz.customers.list_beneficiaries('customer-id')
+print(f'Beneficiaries: {beneficiaries["data"]}')
+```
+
+#### Get Specific Beneficiary
+
+```python
+beneficiary = blaaiz.customers.get_beneficiary('customer-id', 'beneficiary-id')
+print(f'Beneficiary: {beneficiary["data"]}')
 
 ### File Management & KYC
 
@@ -150,10 +173,11 @@ file_association = blaaiz.customers.upload_files('customer-id', {
 
 ```python
 collection = blaaiz.collections.initiate({
-    'method': "open_banking",
-    'amount': 100.00,
     'customer_id': "customer-id",
     'wallet_id': "wallet-id",
+    'amount': 100.00,
+    'currency': "EUR",  # or "GBP"
+    'method': "open_banking",
     'phone': "+1234567890"  # Optional
 })
 
@@ -165,10 +189,11 @@ print(f'Transaction ID: {collection["data"]["transaction_id"]}')
 
 ```python
 collection = blaaiz.collections.initiate({
-    'method': "card",
-    'amount': 5000,
     'customer_id': "customer-id",
-    'wallet_id': "wallet-id"
+    'wallet_id': "wallet-id",
+    'amount': 5000,
+    'currency': "NGN",  # or "USD"
+    'method': "card",
 })
 
 print(f'Payment URL: {collection["data"]["url"]}')
@@ -199,24 +224,63 @@ attachment = blaaiz.collections.attach_customer({
 })
 ```
 
+#### Accept Interac Money Request (CAD)
+
+```python
+result = blaaiz.collections.accept_interac_money_request({
+    'reference_number': "interac-reference-number"
+})
+```
+
 ### Payouts
 
-#### Bank Transfer Payout
+#### Bank Transfer Payout (NGN)
 
 ```python
 payout = blaaiz.payouts.initiate({
     'wallet_id': "wallet-id",
     'customer_id': "customer-id",
     'method': "bank_transfer",
-    'from_amount': 1000,
-    'from_currency_id': "1",  # NGN
-    'to_currency_id': "1",    # NGN
-    'account_number': "0123456789",
+    'from_amount': 1000,  # OR use 'to_amount' for exact recipient amount
+    'from_currency_id': "NGN",
+    'to_currency_id': "NGN",
     'bank_id': "1",
-    'phone_number': "+2348012345678"
+    'account_number': "0123456789",
 })
 
 print(f'Payout Status: {payout["data"]["transaction"]["status"]}')
+```
+
+#### Bank Transfer Payout (GBP)
+
+```python
+gbp_payout = blaaiz.payouts.initiate({
+    'wallet_id': "wallet-id",
+    'customer_id': "customer-id",
+    'method': "bank_transfer",
+    'from_amount': 500,
+    'from_currency_id': "GBP",
+    'to_currency_id': "GBP",
+    'sort_code': "12-34-56",
+    'account_number': "12345678",
+    'account_name': "John Doe",
+})
+```
+
+#### Bank Transfer Payout (EUR)
+
+```python
+eur_payout = blaaiz.payouts.initiate({
+    'wallet_id': "wallet-id",
+    'customer_id': "customer-id",
+    'method': "bank_transfer",
+    'from_amount': 500,
+    'from_currency_id': "EUR",
+    'to_currency_id': "EUR",
+    'iban': "DE89370400440532013000",
+    'bic_code': "COBADEFFXXX",
+    'account_name': "John Doe",
+})
 ```
 
 #### Interac Payout (CAD)
@@ -227,11 +291,66 @@ interac_payout = blaaiz.payouts.initiate({
     'customer_id': "customer-id",
     'method': "interac",
     'from_amount': 100,
-    'from_currency_id': "2",  # CAD
-    'to_currency_id': "2",    # CAD
+    'from_currency_id': "CAD",
+    'to_currency_id': "CAD",
     'email': "recipient@example.com",
     'interac_first_name': "John",
     'interac_last_name': "Doe"
+})
+```
+
+#### ACH Payout (USD)
+
+```python
+ach_payout = blaaiz.payouts.initiate({
+    'wallet_id': "wallet-id",
+    'customer_id': "customer-id",
+    'method': "ach",
+    'from_amount': 1000,
+    'from_currency_id': "USD",
+    'to_currency_id': "USD",
+    'type': "individual",  # or "business"
+    'account_number': "123456789",
+    'account_name': "John Doe",
+    'account_type': "checking",  # or "savings"
+    'bank_name': "Chase Bank",
+    'routing_number': "021000021",
+})
+```
+
+#### Wire Payout (USD)
+
+```python
+wire_payout = blaaiz.payouts.initiate({
+    'wallet_id': "wallet-id",
+    'customer_id': "customer-id",
+    'method': "wire",
+    'from_amount': 5000,
+    'from_currency_id': "USD",
+    'to_currency_id': "USD",
+    'type': "individual",
+    'account_number': "123456789",
+    'account_name': "John Doe",
+    'account_type': "checking",
+    'bank_name': "Chase Bank",
+    'routing_number': "021000021",
+    'swift_code': "CHASUS33",
+})
+```
+
+#### Crypto Payout (USD)
+
+```python
+crypto_payout = blaaiz.payouts.initiate({
+    'wallet_id': "wallet-id",
+    'customer_id': "customer-id",
+    'method': "crypto",
+    'from_amount': 100,
+    'from_currency_id': "USD",
+    'to_currency_id': "USD",
+    'wallet_address': "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
+    'wallet_token': "USDT",
+    'wallet_network': "ethereum",
 })
 ```
 
@@ -252,8 +371,40 @@ print(f'Bank Name: {vba["data"]["bank_name"]}')
 #### List Virtual Bank Accounts
 
 ```python
-vbas = blaaiz.virtual_bank_accounts.list("wallet-id")
+# Filter by wallet ID
+vbas = blaaiz.virtual_bank_accounts.list(wallet_id="wallet-id")
 print(f'Virtual Accounts: {vbas["data"]}')
+
+# Filter by customer ID
+vbas = blaaiz.virtual_bank_accounts.list(customer_id="customer-id")
+
+# Filter by both
+vbas = blaaiz.virtual_bank_accounts.list(wallet_id="wallet-id", customer_id="customer-id")
+```
+
+#### Get Virtual Bank Account
+
+```python
+vba = blaaiz.virtual_bank_accounts.get("vba-id")
+print(f'Account Details: {vba["data"]}')
+```
+
+#### Close Virtual Bank Account
+
+```python
+result = blaaiz.virtual_bank_accounts.close("vba-id", reason="No longer needed")
+print(f'Closed: {result["data"]}')
+```
+
+#### Get Identification Type Requirements
+
+```python
+# Using customer ID
+id_types = blaaiz.virtual_bank_accounts.get_identification_type(customer_id="customer-id")
+
+# Using country and type
+id_types = blaaiz.virtual_bank_accounts.get_identification_type(country="US", type="individual")
+print(f'Required ID Types: {id_types["data"]}')
 ```
 
 ### Wallets
@@ -325,15 +476,23 @@ print(f'Supported Currencies: {currencies["data"]}')
 #### Get Fee Breakdown
 
 ```python
+# Calculate fees based on amount you want to send
 fee_breakdown = blaaiz.fees.get_breakdown({
-    'from_currency_id': "1",  # NGN
-    'to_currency_id': "2",    # CAD
+    'from_currency_id': "NGN",
+    'to_currency_id': "CAD",
     'from_amount': 100000
 })
 
 print(f'You send: {fee_breakdown["data"]["you_send"]}')
 print(f'Recipient gets: {fee_breakdown["data"]["recipient_gets"]}')
 print(f'Total fees: {fee_breakdown["data"]["total_fees"]}')
+
+# OR calculate fees based on exact amount recipient should receive
+fee_breakdown = blaaiz.fees.get_breakdown({
+    'from_currency_id': "NGN",
+    'to_currency_id': "CAD",
+    'to_amount': 500  # Recipient gets exactly 500 CAD
+})
 ```
 
 ### Webhooks
@@ -362,6 +521,16 @@ replay = blaaiz.webhooks.replay({
 })
 ```
 
+#### Simulate Interac Webhook (Non-Production Only)
+
+```python
+# Only available in non-production environments
+result = blaaiz.webhooks.simulate_interac_webhook({
+    'amount': 100,
+    'collection_email': "sender@example.com"
+})
+```
+
 ## Advanced Usage
 
 ### Complete Payout Workflow
@@ -380,12 +549,11 @@ complete_payout_result = blaaiz.create_complete_payout({
     'payout_data': {
         'wallet_id': "wallet-id",
         'method': "bank_transfer",
-        'from_amount': 1000,
-        'from_currency_id': "1",
-        'to_currency_id': "1",
-        'account_number': "0123456789",
+        'from_amount': 1000,  # OR 'to_amount' for exact recipient amount
+        'from_currency_id': "NGN",
+        'to_currency_id': "NGN",
         'bank_id': "1",
-        'phone_number': "+2348012345678"
+        'account_number': "0123456789",
     }
 })
 
@@ -410,6 +578,7 @@ complete_collection_result = blaaiz.create_complete_collection({
     'collection_data': {
         'method': "card",
         'amount': 5000,
+        'currency': "NGN",
         'wallet_id': "wallet-id"
     },
     'create_vba': True  # Optionally create a virtual bank account
@@ -450,7 +619,7 @@ except Exception as e:
 
 ### Webhook Signature Verification
 
-The SDK provides built-in webhook signature verification:
+The SDK provides built-in webhook signature verification. Blaaiz uses HMAC-SHA256 to sign webhooks with the format `timestamp.payload`.
 
 ```python
 from blaaiz import Blaaiz
@@ -459,9 +628,10 @@ blaaiz = Blaaiz('your-api-key')
 
 # Method 1: Verify signature manually
 is_valid = blaaiz.webhooks.verify_signature(
-    payload,        # Raw webhook payload (string or dict)
-    signature,      # Signature from webhook headers
-    webhook_secret  # Your webhook secret key
+    raw_body,       # Raw webhook payload string
+    signature,      # x-blaaiz-signature header
+    timestamp,      # x-blaaiz-timestamp header
+    webhook_secret  # Your API secret key
 )
 
 if is_valid:
@@ -472,11 +642,12 @@ else:
 # Method 2: Construct verified event (recommended)
 try:
     event = blaaiz.webhooks.construct_event(
-        payload,        # Raw webhook payload
-        signature,      # Signature from webhook headers  
-        webhook_secret  # Your webhook secret key
+        payload,        # Raw webhook payload string
+        signature,      # x-blaaiz-signature header
+        timestamp,      # x-blaaiz-timestamp header
+        webhook_secret  # Your API secret key
     )
-    
+
     print(f'Verified event: {event}')
     # event['verified'] will be True
     # event['timestamp'] will contain verification timestamp
@@ -494,25 +665,26 @@ import os
 app = Flask(__name__)
 blaaiz = Blaaiz(os.getenv('BLAAIZ_API_KEY'))
 
-# Webhook secret (get this from your Blaaiz dashboard)
+# Webhook secret (your API secret key)
 WEBHOOK_SECRET = os.getenv('BLAAIZ_WEBHOOK_SECRET')
 
 @app.route('/webhooks/collection', methods=['POST'])
 def handle_collection_webhook():
     signature = request.headers.get('x-blaaiz-signature')
+    timestamp = request.headers.get('x-blaaiz-timestamp')
     payload = request.get_data(as_text=True)
-    
+
     try:
         # Verify webhook signature and construct event
-        event = blaaiz.webhooks.construct_event(payload, signature, WEBHOOK_SECRET)
-        
+        event = blaaiz.webhooks.construct_event(payload, signature, timestamp, WEBHOOK_SECRET)
+
         print(f'Verified collection event: {event}')
-        
+
         # Process the collection
         # Update your database, send notifications, etc.
-        
+
         return jsonify({'received': True}), 200
-        
+
     except ValueError as e:
         print(f'Webhook verification failed: {str(e)}')
         return jsonify({'error': 'Invalid signature'}), 400
@@ -520,19 +692,20 @@ def handle_collection_webhook():
 @app.route('/webhooks/payout', methods=['POST'])
 def handle_payout_webhook():
     signature = request.headers.get('x-blaaiz-signature')
+    timestamp = request.headers.get('x-blaaiz-timestamp')
     payload = request.get_data(as_text=True)
-    
+
     try:
         # Verify webhook signature and construct event
-        event = blaaiz.webhooks.construct_event(payload, signature, WEBHOOK_SECRET)
-        
+        event = blaaiz.webhooks.construct_event(payload, signature, timestamp, WEBHOOK_SECRET)
+
         print(f'Verified payout event: {event}')
-        
+
         # Process the payout completion
         # Update your database, send notifications, etc.
-        
+
         return jsonify({'received': True}), 200
-        
+
     except ValueError as e:
         print(f'Webhook verification failed: {str(e)}')
         return jsonify({'error': 'Invalid signature'}), 400
@@ -608,6 +781,32 @@ For support and additional documentation:
 - Issues: https://github.com/blaaiz/blaaiz-python-sdk/issues
 
 ## Changelog
+
+### 1.1.0
+- **Customer Service**:
+  - Added `list_beneficiaries()` method to list customer beneficiaries
+  - Added `get_beneficiary()` method to get specific beneficiary
+  - Updated `create()` validation: `first_name`/`last_name` now only required for individuals
+- **Collection Service**:
+  - Added `accept_interac_money_request()` method for CAD Interac transfers
+  - Updated `initiate()` required fields: now requires `customer_id` and `currency`
+- **Payout Service**:
+  - Added `customer_id` as required field
+  - Added support for `to_amount` as alternative to `from_amount`
+  - Added currency-specific validation for bank transfers (NGN, GBP, EUR)
+  - Added ACH payout support (USD)
+  - Added Wire payout support (USD)
+  - Added Crypto payout support (USD)
+- **Virtual Bank Account Service**:
+  - Added `close()` method to close virtual bank accounts
+  - Added `get_identification_type()` method for ID type requirements
+  - Updated `list()` to support `customer_id` filter parameter
+- **Webhook Service**:
+  - Added `simulate_interac_webhook()` method (non-production only)
+  - Updated `verify_signature()` to use timestamp-based verification
+  - Updated `construct_event()` to require timestamp parameter
+- **Fees Service**:
+  - Added support for `to_amount` as alternative to `from_amount`
 
 ### 1.0.0
 - Initial release

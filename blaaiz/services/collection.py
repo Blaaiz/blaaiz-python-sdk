@@ -21,7 +21,7 @@ class CollectionService:
         Returns:
             API response containing collection data
         """
-        required_fields = ["method", "amount", "wallet_id"]
+        required_fields = ["customer_id", "wallet_id", "amount", "currency", "method"]
 
         for field in required_fields:
             if field not in collection_data or not collection_data[field]:
@@ -69,3 +69,23 @@ class CollectionService:
             API response containing crypto networks
         """
         return self.client.make_request("GET", "/api/external/collection/crypto/networks")
+
+    def accept_interac_money_request(self, interac_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Accept an Interac transfer into your business wallet.
+
+        Args:
+            interac_data: Interac money request data containing reference_number
+
+        Returns:
+            API response
+        """
+        required_fields = ["reference_number"]
+
+        for field in required_fields:
+            if field not in interac_data or not interac_data[field]:
+                raise ValueError(f"{field} is required")
+
+        return self.client.make_request(
+            "POST", "/api/external/collection/accept-interac-money-request", interac_data
+        )
