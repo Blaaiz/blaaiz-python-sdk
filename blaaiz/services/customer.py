@@ -338,7 +338,7 @@ class CustomerService:
     def _download_file(self, url: str) -> Dict[str, Any]:
         """Download file from URL."""
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Blaaiz-Python-SDK/1.1.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": "Blaaiz-Python-SDK/1.1.1"})
 
             with urllib.request.urlopen(req, timeout=30) as response:
                 if response.status >= 300:
