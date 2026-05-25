@@ -121,6 +121,32 @@ class TestCustomerService(unittest.TestCase):
         self.mock_client.make_request.assert_called_once_with("GET", "/api/external/customer")
         self.assertEqual(result["data"], [])
 
+    def test_list_customers_with_filters(self):
+        """Test listing customers with filters and pagination."""
+        self.mock_client.make_request.return_value = {
+            "data": [],
+            "meta": {"current_page": 1, "total": 0},
+        }
+
+        result = self.service.list(
+            {
+                "email": "john@example.com",
+                "verification_status": "VERIFIED",
+                "type": "individual",
+                "paginate": True,
+            }
+        )
+
+        args, _ = self.mock_client.make_request.call_args
+        self.assertEqual(args[0], "GET")
+        self.assertTrue(args[1].startswith("/api/external/customer?"))
+        query = args[1].split("?", 1)[1]
+        self.assertIn("email=john%40example.com", query)
+        self.assertIn("verification_status=VERIFIED", query)
+        self.assertIn("type=individual", query)
+        self.assertIn("paginate=true", query)
+        self.assertEqual(result["meta"]["current_page"], 1)
+
 
 class TestCollectionService(unittest.TestCase):
     """Test cases for CollectionService."""
