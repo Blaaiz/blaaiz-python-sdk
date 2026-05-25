@@ -91,6 +91,22 @@ customers = blaaiz.customers.list()
 print(f'Customers: {customers["data"]}')
 ```
 
+You can also pass optional filters and opt-in pagination. Supported filters
+are `email`, `id_number`, `registration_number`, `verification_status`, and
+`type`. Set `paginate=True` to receive a paginated response that includes
+`links` and `meta` (with `current_page`, `total`, etc.) alongside `data`.
+
+```python
+verified = blaaiz.customers.list({
+    "email": "john@example.com",
+    "verification_status": "VERIFIED",
+    "type": "individual",
+    "paginate": True,
+})
+print(f'Page: {verified["data"]["meta"]["current_page"]}')
+print(f'Customers: {verified["data"]["data"]}')
+```
+
 #### Update Customer
 
 ```python

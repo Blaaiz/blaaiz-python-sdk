@@ -4,6 +4,7 @@ Customer Service
 
 import base64
 import os
+import urllib.parse
 import urllib.request
 import urllib.error
 from typing import Dict, Any, Optional, Union
@@ -49,14 +50,33 @@ class CustomerService:
 
         return self.client.make_request("POST", "/api/external/customer", customer_data)
 
-    def list(self) -> Dict[str, Any]:
+    def list(self, filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        List all customers.
+        List customers, optionally filtered and/or paginated.
+
+        Args:
+            filters: Optional query parameters. Supported keys include
+                ``email``, ``id_number``, ``registration_number``,
+                ``verification_status``, ``type`` and ``paginate``. When
+                ``paginate`` is truthy the response includes ``links`` and
+                ``meta`` pagination metadata.
 
         Returns:
             API response containing list of customers
         """
-        return self.client.make_request("GET", "/api/external/customer")
+        endpoint = "/api/external/customer"
+        if filters:
+            params = {}
+            for key, value in filters.items():
+                if value is None:
+                    continue
+                if isinstance(value, bool):
+                    params[key] = "true" if value else "false"
+                else:
+                    params[key] = value
+            if params:
+                endpoint = f"{endpoint}?{urllib.parse.urlencode(params)}"
+        return self.client.make_request("GET", endpoint)
 
     def get(self, customer_id: str) -> Dict[str, Any]:
         """
