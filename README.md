@@ -262,10 +262,20 @@ payout = blaaiz.payouts.initiate({
     'to_currency_id': "NGN",
     'bank_id': "1",
     'account_number': "0123456789",
+    'note': "Acme Ltd",  # Optional; appears in the transaction description (defaults to your business name if omitted)
 })
 
 print(f'Payout Status: {payout["data"]["transaction"]["status"]}')
 ```
+
+#### Passing additional fields
+
+The `initiate()` method forwards your payload verbatim to the API, so any field
+documented in the [Blaaiz API reference](https://docs.business.blaaiz.com) can be
+included even if it is not shown in the examples above. For instance, the optional
+`note` field (used in the NGN example) populates the transaction description and
+defaults to your business name when omitted. Extra keys are passed through unchanged
+and are never stripped or rejected by the SDK.
 
 #### Bank Transfer Payout (GBP)
 
