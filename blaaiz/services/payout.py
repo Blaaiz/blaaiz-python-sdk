@@ -53,7 +53,12 @@ class PayoutService:
         Initiate a payout.
 
         Args:
-            payout_data: Payout information
+            payout_data: Payout information. The entire payload is forwarded
+                verbatim to the API, so any field documented in the Blaaiz API
+                reference (https://docs.business.blaaiz.com) may be included even
+                if it is not validated here. Notably, an optional ``note`` string
+                populates the transaction description and defaults to the business
+                name when omitted.
 
         Returns:
             API response containing payout data
