@@ -29,17 +29,37 @@ class Blaaiz:
     """
 
     def __init__(
-        self, api_key: str, base_url: str = "https://api-dev.blaaiz.com", timeout: int = 30
+        self,
+        api_key: Optional[str] = None,
+        base_url: str = "https://api-dev.blaaiz.com",
+        timeout: int = 30,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
+        oauth_scope: Optional[str] = None,
     ):
         """
         Initialize the Blaaiz SDK.
 
+        Authenticate with either OAuth 2.0 client credentials (``client_id`` and
+        ``client_secret``) or a legacy ``api_key``. When both are provided, OAuth
+        is used.
+
         Args:
-            api_key: Your Blaaiz API key
+            api_key: Your Blaaiz API key (legacy authentication)
             base_url: Base URL for the API (defaults to dev environment)
             timeout: Request timeout in seconds
+            client_id: OAuth client ID
+            client_secret: OAuth client secret
+            oauth_scope: Space-separated OAuth scopes (defaults to the full scope set)
         """
-        self.client = BlaaizAPIClient(api_key, base_url, timeout)
+        self.client = BlaaizAPIClient(
+            api_key,
+            base_url,
+            timeout,
+            client_id=client_id,
+            client_secret=client_secret,
+            oauth_scope=oauth_scope,
+        )
 
         # Initialize all services with method chaining
         self.customers = CustomerService(self.client)

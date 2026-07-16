@@ -4,7 +4,7 @@ Blaaiz Python SDK
 A comprehensive Python SDK for the Blaaiz RaaS (Remittance as a Service) API.
 """
 
-from .client import BlaaizAPIClient
+from .client import BlaaizAPIClient, ALL_SCOPES
 from .error import BlaaizError
 from .blaaiz import Blaaiz
 from .services import (
@@ -29,6 +29,7 @@ __all__ = [
     "Blaaiz",
     "BlaaizError",
     "BlaaizAPIClient",
+    "ALL_SCOPES",
     "CustomerService",
     "CollectionService",
     "PayoutService",
