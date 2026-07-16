@@ -41,7 +41,7 @@ jobs:
       run: |
         mypy blaaiz/
     
-    - name: Test with pytest
+    - name: Tests
       run: |
         python -m pytest tests/ -v --cov=blaaiz --cov-report=xml
     
