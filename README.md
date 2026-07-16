@@ -856,6 +856,12 @@ For support and additional documentation:
 
 ## Changelog
 
+### 1.2.0
+- **OAuth 2.0 Authentication**:
+  - Added OAuth 2.0 client-credentials support: construct the client with `client_id`/`client_secret` to authenticate via Bearer tokens fetched from `/oauth/token`
+  - Fully backward compatible: the legacy `api_key` authentication still works unchanged
+  - When both `api_key` and OAuth credentials are provided, OAuth is preferred
+
 ### 1.1.0
 - **Customer Service**:
   - Added `list_beneficiaries()` method to list customer beneficiaries

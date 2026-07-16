@@ -87,7 +87,7 @@ class BlaaizAPIClient:
         self.default_headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "User-Agent": "Blaaiz-Python-SDK/1.1.1",
+            "User-Agent": "Blaaiz-Python-SDK/1.2.0",
         }
         if not self.use_oauth:
             self.default_headers["x-blaaiz-api-key"] = self.api_key
