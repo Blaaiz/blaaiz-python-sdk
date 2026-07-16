@@ -127,6 +127,22 @@ class TestOAuthTokenFetch(unittest.TestCase):
 
     @patch("blaaiz.client.time.time")
     @patch("urllib.request.urlopen")
+    def test_token_string_expires_in_is_coerced(self, mock_urlopen, mock_time):
+        mock_time.return_value = 1000
+        _mock_token_response(mock_urlopen, {"access_token": "tok-abc", "expires_in": "3600"})
+
+        first = self.client.get_oauth_token()
+        self.assertEqual(first, "tok-abc")
+        self.assertEqual(self.client._token_expires_at, 1000 + 3600 - 60)
+
+        # Cached and reused within the validity window (no re-fetch)
+        mock_time.return_value = 2000
+        second = self.client.get_oauth_token()
+        self.assertEqual(second, "tok-abc")
+        self.assertEqual(mock_urlopen.call_count, 1)
+
+    @patch("blaaiz.client.time.time")
+    @patch("urllib.request.urlopen")
     def test_token_is_cached_and_reused(self, mock_urlopen, mock_time):
         mock_time.return_value = 1000
         _mock_token_response(mock_urlopen, {"access_token": "tok-1", "expires_in": 3600})

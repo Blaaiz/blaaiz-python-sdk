@@ -163,8 +163,9 @@ class BlaaizAPIClient:
 
         access_token = parsed["access_token"]
         self._access_token = access_token
-        expires_in = parsed.get("expires_in")
-        if expires_in is None:
+        try:
+            expires_in = int(parsed.get("expires_in", 900))
+        except (TypeError, ValueError):
             expires_in = 900
         self._token_expires_at = int(time.time()) + expires_in - 60
         return access_token
