@@ -21,6 +21,45 @@ is_connected = blaaiz.test_connection()
 print(f'API Connected: {is_connected}')
 ```
 
+## Authentication
+
+The SDK supports two authentication methods: **OAuth 2.0 client credentials** (recommended) and a **legacy API key**.
+
+### OAuth 2.0 (client credentials)
+
+Provide a `client_id` and `client_secret`. The SDK fetches a bearer token from `POST {base_url}/oauth/token`, caches it in memory, and refreshes it automatically 60 seconds before it expires.
+
+```python
+import os
+from blaaiz import Blaaiz
+
+blaaiz = Blaaiz(
+    client_id=os.environ['BLAAIZ_CLIENT_ID'],
+    client_secret=os.environ['BLAAIZ_CLIENT_SECRET'],
+)
+```
+
+By default the SDK requests the full set of scopes. Pass `oauth_scope` (a space-separated string) to request a narrower set:
+
+```python
+blaaiz = Blaaiz(
+    client_id=os.environ['BLAAIZ_CLIENT_ID'],
+    client_secret=os.environ['BLAAIZ_CLIENT_SECRET'],
+    oauth_scope='wallet:read transaction:read',
+)
+```
+
+### Legacy API key
+
+```python
+import os
+from blaaiz import Blaaiz
+
+blaaiz = Blaaiz(os.environ['BLAAIZ_API_KEY'])
+```
+
+When both OAuth credentials and an API key are configured, OAuth is used. If neither a `client_id`/`client_secret` pair nor an `api_key` is provided, a `BlaaizError` is raised.
+
 ## Features
 
 - **Customer Management**: Create, update, and manage customers with KYC verification
@@ -743,11 +782,20 @@ if __name__ == '__main__':
 ## Environment Configuration
 
 ```python
+import os
+
 # Development
 blaaiz_dev = Blaaiz('dev-api-key', base_url='https://api-dev.blaaiz.com')
 
 # Production (when available)
 blaaiz_prod = Blaaiz('prod-api-key', base_url='https://api.blaaiz.com')
+
+# OAuth 2.0 with credentials from the environment
+blaaiz_oauth = Blaaiz(
+    client_id=os.environ['BLAAIZ_CLIENT_ID'],
+    client_secret=os.environ['BLAAIZ_CLIENT_SECRET'],
+    base_url='https://api.blaaiz.com',
+)
 ```
 
 ## Best Practices

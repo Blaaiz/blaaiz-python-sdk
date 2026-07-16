@@ -30,11 +30,11 @@ class TestBlaaizAPIClient(unittest.TestCase):
         self.assertEqual(client.base_url, "https://custom.com")
         self.assertEqual(client.timeout, 60)
 
-    def test_initialization_without_api_key(self):
-        """Test client initialization without API key raises error."""
-        with self.assertRaises(ValueError) as context:
+    def test_initialization_without_credentials(self):
+        """Test client initialization without any credentials raises error."""
+        with self.assertRaises(BlaaizError) as context:
             BlaaizAPIClient("")
-        self.assertIn("API key is required", str(context.exception))
+        self.assertIn("Authentication required", str(context.exception))
 
     @patch("urllib.request.urlopen")
     def test_successful_request(self, mock_urlopen):
