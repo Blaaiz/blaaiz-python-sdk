@@ -161,12 +161,13 @@ class BlaaizAPIClient:
         if not isinstance(parsed, dict) or not parsed.get("access_token"):
             raise BlaaizError("Failed to parse OAuth token response", status, "OAUTH_PARSE_ERROR")
 
-        self._access_token = parsed["access_token"]
+        access_token = parsed["access_token"]
+        self._access_token = access_token
         expires_in = parsed.get("expires_in")
         if expires_in is None:
             expires_in = 900
         self._token_expires_at = int(time.time()) + expires_in - 60
-        return self._access_token
+        return access_token
 
     def get_auth_headers(self) -> Dict[str, str]:
         """
