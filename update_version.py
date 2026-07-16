@@ -67,18 +67,19 @@ def update_version(new_version: str) -> None:
             # Read file content
             content = file_path.read_text()
 
+            # Match flags must be consistent with the substitution below;
+            # pyproject.toml's pattern is line-anchored and needs MULTILINE.
+            flags = re.MULTILINE if update["file"] == "pyproject.toml" else 0
+
             # Check if pattern exists
-            if not re.search(update["pattern"], content):
+            if not re.search(update["pattern"], content, flags=flags):
                 print(f"Warning: Pattern not found in {update['file']}, skipping...")
                 continue
 
             # Replace version
-            if update["file"] == "pyproject.toml":
-                updated_content = re.sub(
-                    update["pattern"], update["replacement"], content, flags=re.MULTILINE
-                )
-            else:
-                updated_content = re.sub(update["pattern"], update["replacement"], content)
+            updated_content = re.sub(
+                update["pattern"], update["replacement"], content, flags=flags
+            )
 
             # Write back to file
             file_path.write_text(updated_content)
