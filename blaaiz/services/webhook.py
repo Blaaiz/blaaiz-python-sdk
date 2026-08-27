@@ -41,7 +41,7 @@ class WebhookService:
         """
         return self.client.make_request("GET", "/api/external/webhook")
 
-    def update(self, webhook_data: Dict[str, Any]) -> Dict[str, Any]:
+    def update(self, webhook_id: str, webhook_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Update webhook configuration.
 
@@ -51,7 +51,7 @@ class WebhookService:
         Returns:
             API response
         """
-        return self.client.make_request("PUT", "/api/external/webhook", webhook_data)
+        return self.client.make_request("PUT", f"/api/external/webhook/{webhook_id}", webhook_data)
 
     def replay(self, replay_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -69,7 +69,7 @@ class WebhookService:
             if field not in replay_data or not replay_data[field]:
                 raise ValueError(f"{field} is required")
 
-        return self.client.make_request("POST", "/api/external/webhook/replay", replay_data)
+        return self.client.make_request("POST", "/api/external/webhook-replay", replay_data)
 
     def simulate_interac_webhook(self, simulate_data: Dict[str, Any]) -> Dict[str, Any]:
         """
