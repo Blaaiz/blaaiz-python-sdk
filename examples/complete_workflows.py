@@ -156,6 +156,74 @@ def crypto_collection_example():
         print(f"Unexpected error: {str(e)}")
 
 
+def rates_swaps_refunds_example():
+    """Example of the rate, swap and refund services."""
+
+    print("\n=== Rates, Swaps & Refunds Example ===")
+
+    try:
+        # List exchange rates (optional search_term filter)
+        rates = blaaiz.rates.list({"search_term": "NGN"})
+        print(f"Rates: {rates['data']}")
+
+        # Swap funds between two business wallets
+        swap = blaaiz.swaps.initiate(
+            {
+                "from_business_wallet_id": "your-wallet-a",
+                "to_business_wallet_id": "your-wallet-b",
+                "amount": 100,
+                "amount_type": "from",
+            }
+        )
+        print(f"✓ Swap initiated: {swap['data']}")
+
+        # Refund a transaction, then read the refund back
+        refund = blaaiz.refunds.initiate(
+            {"transaction_id": "your-transaction-id", "reason": "Customer request"}
+        )
+        refund_id = refund["data"]["id"]
+        status = blaaiz.refunds.get(refund_id)
+        print(f"✓ Refund {refund_id} status: {status['data']['status']}")
+
+    except BlaaizError as e:
+        print(f"Rates/swaps/refunds example failed: {e.message}")
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+
+
+def merchant_reference_example():
+    """Example of attaching a merchant_reference for reconciliation."""
+
+    print("\n=== Merchant Reference Example ===")
+
+    try:
+        # merchant_reference is an optional passthrough on payouts and collections;
+        # it is unique per business and returned on the resulting transaction.
+        payout = blaaiz.payouts.initiate(
+            {
+                "wallet_id": "your-wallet-id",
+                "customer_id": "your-customer-id",
+                "method": "bank_transfer",
+                "from_amount": 1000,
+                "from_currency_id": "1",
+                "to_currency_id": "1",
+                "bank_id": "1",
+                "account_number": "0123456789",
+                "merchant_reference": "order-1234",
+            }
+        )
+        print(f"✓ Payout merchant_reference: {payout['data']['transaction']['merchant_reference']}")
+
+        # Look the transaction back up by its merchant_reference
+        transaction = blaaiz.transactions.get("order-1234")
+        print(f"✓ Resolved transaction: {transaction['data']['id']}")
+
+    except BlaaizError as e:
+        print(f"Merchant reference example failed: {e.message}")
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+
+
 def main():
     """Run all workflow examples."""
 
@@ -174,6 +242,8 @@ def main():
     complete_collection_example()
     interac_payout_example()
     crypto_collection_example()
+    rates_swaps_refunds_example()
+    merchant_reference_example()
 
     print("\n✓ All workflow examples completed!")
 
