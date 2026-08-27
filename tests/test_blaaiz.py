@@ -32,6 +32,9 @@ class TestBlaaiz(unittest.TestCase):
         self.assertIsNotNone(self.blaaiz.fees)
         self.assertIsNotNone(self.blaaiz.files)
         self.assertIsNotNone(self.blaaiz.webhooks)
+        self.assertIsNotNone(self.blaaiz.rates)
+        self.assertIsNotNone(self.blaaiz.swaps)
+        self.assertIsNotNone(self.blaaiz.refunds)
 
     def test_initialization_with_custom_options(self):
         """Test initialization with custom options."""
