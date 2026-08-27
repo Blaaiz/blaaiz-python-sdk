@@ -13,6 +13,9 @@ from .currency import CurrencyService
 from .fees import FeesService
 from .file import FileService
 from .webhook import WebhookService
+from .rate import RateService
+from .swap import SwapService
+from .refund import RefundService
 
 __all__ = [
     "CustomerService",
@@ -26,4 +29,7 @@ __all__ = [
     "FeesService",
     "FileService",
     "WebhookService",
+    "RateService",
+    "SwapService",
+    "RefundService",
 ]
