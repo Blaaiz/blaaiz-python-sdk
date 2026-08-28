@@ -449,7 +449,9 @@ class TestCollectionService(unittest.TestCase):
             "merchant_reference": "order-123",
         }
 
-        self.mock_client.make_request.return_value = {"data": {"transaction_id": "tx-id", "url": "https://x"}}
+        self.mock_client.make_request.return_value = {
+            "data": {"transaction_id": "tx-id", "url": "https://x"}
+        }
 
         result = self.service.initiate(collection_data)
 
@@ -490,6 +492,20 @@ class TestCollectionService(unittest.TestCase):
             self.service.initiate_crypto({"amount": 100, "wallet_id": "wallet-id"})
 
         self.assertIn("network is required", str(context.exception))
+
+    def test_initiate_crypto_success(self):
+        """Crypto collection forwards the body to POST /collection/crypto."""
+        self.mock_client.make_request.return_value = {"data": {"transaction_id": "tx"}}
+        data = {
+            "amount": 100,
+            "wallet_id": "wallet-id",
+            "network": "ETHEREUM_MAINNET",
+            "token": "USDT",
+        }
+        self.service.initiate_crypto(data)
+        self.mock_client.make_request.assert_called_once_with(
+            "POST", "/api/external/collection/crypto", data
+        )
 
     def test_get_crypto_networks_with_filters(self):
         """Crypto networks accept an optional transaction_type filter."""
@@ -621,6 +637,30 @@ class TestWebhookService(unittest.TestCase):
         """Set up test service."""
         self.mock_client = MagicMock()
         self.service = WebhookService(self.mock_client)
+
+    def test_update_targets_webhook_by_id(self):
+        """update targets PUT /webhook/{id} and forwards the body."""
+        self.mock_client.make_request.return_value = {"data": {"id": "wh-1"}}
+        data = {"collection_url": "https://x/c", "payout_url": "https://x/p"}
+        self.service.update("wh-1", data)
+        self.mock_client.make_request.assert_called_once_with(
+            "PUT", "/api/external/webhook/wh-1", data
+        )
+
+    def test_replay_targets_webhook_replay(self):
+        """replay targets POST /webhook-replay."""
+        self.mock_client.make_request.return_value = {"data": {"status": "replayed"}}
+        data = {"transaction_id": "tx-1"}
+        self.service.replay(data)
+        self.mock_client.make_request.assert_called_once_with(
+            "POST", "/api/external/webhook-replay", data
+        )
+
+    def test_replay_missing_transaction_id(self):
+        """replay requires transaction_id."""
+        with self.assertRaises(ValueError) as context:
+            self.service.replay({})
+        self.assertIn("transaction_id is required", str(context.exception))
 
     def test_verify_signature_valid(self):
         """Test valid signature verification."""
