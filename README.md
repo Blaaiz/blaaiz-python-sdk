@@ -303,8 +303,8 @@ collection = blaaiz.collections.initiate({
     'merchant_reference': "order-1234"  # Optional; max 255, unique per business
 })
 
-print(f'Payment URL: {collection["url"]}')
-print(f'Transaction ID: {collection["transaction_id"]}')
+print(f'Payment URL: {collection["data"]["url"]}')
+print(f'Transaction ID: {collection["data"]["transaction_id"]}')
 ```
 
 #### Initiate Card Collection (NGN/USD)
@@ -321,7 +321,7 @@ collection = blaaiz.collections.initiate({
     'cvc': "123",                       # Required for card (3 digits)
 })
 
-print(f'Payment URL: {collection["url"]}')
+print(f'Payment URL: {collection["data"]["url"]}')
 ```
 
 #### Crypto Collection

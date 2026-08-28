@@ -449,14 +449,14 @@ class TestCollectionService(unittest.TestCase):
             "merchant_reference": "order-123",
         }
 
-        self.mock_client.make_request.return_value = {"transaction_id": "tx-id", "url": "https://x"}
+        self.mock_client.make_request.return_value = {"data": {"transaction_id": "tx-id", "url": "https://x"}}
 
         result = self.service.initiate(collection_data)
 
         self.mock_client.make_request.assert_called_once_with(
             "POST", "/api/external/collection", collection_data
         )
-        self.assertEqual(result["transaction_id"], "tx-id")
+        self.assertEqual(result["data"]["transaction_id"], "tx-id")
 
     def test_initiate_collection_missing_fields(self):
         """Test initiating collection with missing base fields."""
