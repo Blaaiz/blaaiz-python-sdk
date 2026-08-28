@@ -1018,7 +1018,8 @@ For support and additional documentation:
 
 ## Changelog
 
-### Unreleased
+### 1.4.0
+
 - **Rate Service** (new): added `rates.list()` for exchange rate lookups
 - **Swap Service** (new): added `swaps.initiate()` to swap funds between business wallets
 - **Refund Service** (new): added `refunds.initiate()` and `refunds.get()`
