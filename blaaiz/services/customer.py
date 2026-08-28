@@ -200,8 +200,8 @@ class CustomerService:
 
         Args:
             customer_id: Customer ID
-            upgrade_data: Upgrade information. Requires ``owners`` (a non-empty
-                list whose ownership percentages sum to exactly 100).
+            upgrade_data: Upgrade information. Requires a non-empty ``owners``
+                list; the API requires the ownership percentages to sum to 100.
 
         Returns:
             API response
