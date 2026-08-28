@@ -46,6 +46,7 @@ class WebhookService:
         Update webhook configuration.
 
         Args:
+            webhook_id: The ID of the webhook record to update
             webhook_data: Updated webhook configuration
 
         Returns:
