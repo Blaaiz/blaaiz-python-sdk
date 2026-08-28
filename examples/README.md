@@ -137,8 +137,13 @@ customer = blaaiz.customers.create({
 collection = blaaiz.collections.initiate({
     'method': "card",
     'amount': 5000,
-    'customer_id': "customer-id",
-    'wallet_id': "wallet-id"
+    'wallet_id': "wallet-id",
+    'customer_id': "customer-id",       # Required for card
+    'card_holder_name': "John Doe",     # Required for card
+    'card_number': "4111111111111111",  # Required for card (16 digits)
+    'expiry': "12/28",                  # Required for card (MM/YY)
+    'cvc': "123",                       # Required for card (3 digits)
+    'merchant_reference': "order-1234"  # Optional; max 255, unique per business
 })
 ```
 

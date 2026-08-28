@@ -17,6 +17,9 @@ from .services import (
     FeesService,
     FileService,
     WebhookService,
+    RateService,
+    SwapService,
+    RefundService,
 )
 
 
@@ -73,6 +76,9 @@ class Blaaiz:
         self.fees = FeesService(self.client)
         self.files = FileService(self.client)
         self.webhooks = WebhookService(self.client)
+        self.rates = RateService(self.client)
+        self.swaps = SwapService(self.client)
+        self.refunds = RefundService(self.client)
 
     def test_connection(self) -> bool:
         """

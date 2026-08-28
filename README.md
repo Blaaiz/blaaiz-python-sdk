@@ -71,7 +71,11 @@ When both OAuth credentials and an API key are configured, OAuth is used. If nei
 - **Webhooks**: Webhook configuration and management with signature verification
 - **Files**: Document upload with pre-signed URLs
 - **Fees**: Real-time fee calculations and breakdowns
-- **Banks & Currencies**: Access to supported banks and currencies
+- **Rates**: Exchange rate lookups
+- **Swaps**: Swap funds between business wallets
+- **Refunds**: Refund transactions and track refund status
+- **Banks & Currencies**: Access to supported banks, payee/IBAN verification and currencies
+- **Merchant Reference**: Attach your own reference to payouts and collections for reconciliation
 
 ## Supported Currencies & Methods
 
@@ -106,12 +110,14 @@ customer = blaaiz.customers.create({
 # Business customer
 business_customer = blaaiz.customers.create({
     'type': "business",
-    'business_name': "Company Name",  # Required for business
+    'business_name': "Company Name",           # Required for business
     'email': "business@example.com",
     'country': "NG",
-    'id_type': "certificate_of_incorporation",
-    'id_number': "RC123456",
+    'registration_number': "RC123456",         # Required for business
+    'incorporation_country': "NG",             # Required for business
 })
+# Note: id_type / id_number are for individual customers only and must not be
+# sent for a business customer.
 
 print(f'Customer ID: {customer["data"]["data"]["id"]}')
 ```
@@ -180,7 +186,7 @@ with open('passport.jpg', 'rb') as f:
 
 result = blaaiz.customers.upload_file_complete('customer-id', {
     'file': file_data,
-    'file_category': 'identity',  # identity, proof_of_address, liveness_check
+    'file_category': 'identity',  # identity, identity_back, proof_of_address, liveness_check
     'filename': 'passport.jpg',
     'content_type': 'image/jpeg'
 })
@@ -222,18 +228,79 @@ file_association = blaaiz.customers.upload_files('customer-id', {
 })
 ```
 
+### Business Verification (KYB)
+
+#### Submit a Customer for Verification
+
+```python
+blaaiz.customers.submit('customer-id')
+```
+
+#### Upgrade KYB Scope
+
+```python
+# Upgrade a MINIMAL business customer to FULL. Ownership must sum to exactly 100.
+blaaiz.customers.upgrade_kyb_scope('customer-id', {
+    'owners': [
+        {'first_name': "Jane", 'last_name': "Doe", 'ownership_percentage': 100}
+    ]
+})
+```
+
+#### Owner Identity Files
+
+```python
+# Step 1: Get a presigned URL for an owner document
+presigned = blaaiz.customers.get_owner_file_presigned_url('customer-id', 'owner-id', {
+    'file_category': "id_document_front"  # or "id_document_back"
+})
+
+# Step 2: Upload the file to the presigned URL, then associate it
+blaaiz.customers.upload_owner_files('customer-id', 'owner-id', {
+    'id_document_front': presigned['file_id'],
+    'id_document_back': "another-file-id"  # Optional
+})
+```
+
+#### Remove an Owner
+
+```python
+blaaiz.customers.delete_owner('customer-id', 'owner-id')
+```
+
+#### Customer Documents
+
+```python
+# Get a presigned URL for a document
+presigned = blaaiz.customers.get_document_presigned_url('customer-id')
+
+# Create a document record
+document = blaaiz.customers.create_document('customer-id', {
+    'type': "PROOF_OF_ADDRESS",       # See API reference for the full enum
+    'name': "Utility bill",
+    'file_id': presigned['file_id'],
+    'description': "March 2026"        # Optional
+})
+
+# List, get, update and delete
+documents = blaaiz.customers.list_documents('customer-id')
+one = blaaiz.customers.get_document('customer-id', document['data']['id'])
+blaaiz.customers.update_document('customer-id', document['data']['id'], {'name': "Renamed"})
+blaaiz.customers.delete_document('customer-id', document['data']['id'])
+```
+
 ### Collections
 
 #### Initiate Open Banking Collection (EUR/GBP)
 
 ```python
 collection = blaaiz.collections.initiate({
-    'customer_id': "customer-id",
-    'wallet_id': "wallet-id",
-    'amount': 100.00,
-    'currency': "EUR",  # or "GBP"
     'method': "open_banking",
-    'phone': "+1234567890"  # Optional
+    'amount': 100.00,
+    'wallet_id': "wallet-id",
+    'phone': "+1234567890",             # Optional
+    'redirect_url': "https://example.com/callback",  # Optional
+    'merchant_reference': "order-1234"  # Optional; max 255, unique per business
 })
 
 print(f'Payment URL: {collection["data"]["url"]}')
@@ -244,11 +311,14 @@ print(f'Transaction ID: {collection["data"]["transaction_id"]}')
 
 ```python
 collection = blaaiz.collections.initiate({
-    'customer_id': "customer-id",
-    'wallet_id': "wallet-id",
-    'amount': 5000,
-    'currency': "NGN",  # or "USD"
     'method': "card",
+    'amount': 5000,
+    'wallet_id': "wallet-id",
+    'customer_id': "customer-id",       # Required for card
+    'card_holder_name': "John Doe",     # Required for card
+    'card_number': "4111111111111111",  # Required for card (16 digits)
+    'expiry': "12/28",                  # Required for card (MM/YY)
+    'cvc': "123",                       # Required for card (3 digits)
 })
 
 print(f'Payment URL: {collection["data"]["url"]}')
@@ -279,6 +349,20 @@ attachment = blaaiz.collections.attach_customer({
 })
 ```
 
+#### Request Interac Money (CAD)
+
+```python
+money_request = blaaiz.collections.initiate_interac_money_request({
+    'amount': 100,
+    'email': "payer@example.com",
+    'customer_name': "Jane Payer",  # Optional
+    'expiry_hours': 24,             # Optional (1-120)
+    'note': "Invoice 42",           # Optional
+})
+
+print(f'Reference: {money_request["reference"]}')
+```
+
 #### Accept Interac Money Request (CAD)
 
 ```python
@@ -302,6 +386,7 @@ payout = blaaiz.payouts.initiate({
     'bank_id': "1",
     'account_number': "0123456789",
     'note': "Acme Ltd",  # Optional; appears in the transaction description (defaults to your business name if omitted)
+    'merchant_reference': "order-1234",  # Optional; max 255, unique per business
 })
 
 print(f'Payout Status: {payout["data"]["transaction"]["status"]}')
@@ -494,9 +579,9 @@ print(f'Wallet Balance: {wallet["data"]["balance"]}')
 
 ```python
 transactions = blaaiz.transactions.list({
-    'page': 1,
-    'limit': 10,
-    'status': "SUCCESSFUL"  # Optional filter
+    'status': "SUCCESSFUL",              # Optional filter
+    'type': "SEND_MONEY",               # Optional: SEND_MONEY, FUND_WALLET, SWAP
+    'merchant_reference': "order-1234"  # Optional; filter by your merchant reference
 })
 
 print(f'Transactions: {transactions["data"]}')
@@ -507,6 +592,10 @@ print(f'Transactions: {transactions["data"]}')
 ```python
 transaction = blaaiz.transactions.get("transaction-id")
 print(f'Transaction: {transaction["data"]}')
+
+# The identifier accepts a transaction id, a reference, or a merchant_reference.
+transaction = blaaiz.transactions.get("order-1234")
+print(f'Merchant reference: {transaction["data"]["merchant_reference"]}')
 ```
 
 ### Banks & Currencies
@@ -516,6 +605,9 @@ print(f'Transaction: {transaction["data"]}')
 ```python
 banks = blaaiz.banks.list()
 print(f'Available Banks: {banks["data"]}')
+
+# Optional filters: currency, country, country_id
+ngn_banks = blaaiz.banks.list({'currency': "NGN", 'country': "NG"})
 ```
 
 #### Bank Account Lookup
@@ -527,6 +619,28 @@ account_info = blaaiz.banks.lookup_account({
 })
 
 print(f'Account Name: {account_info["data"]["account_name"]}')
+```
+
+#### Verify Payee (GBP Confirmation of Payee)
+
+```python
+result = blaaiz.banks.verify_payee({
+    'sort_code': "123456",
+    'account_number': "12345678",
+    'account_name': "John Doe"
+})
+
+print(f'Matched: {result["data"]["matched"]}')
+```
+
+#### Verify IBAN (SEPA Reachability)
+
+```python
+result = blaaiz.banks.verify_iban({
+    'iban': "DE89370400440532013000"
+})
+
+print(f'SEPA reachable: {result["data"]["sepa_reachable"]}')
 ```
 
 #### List Currencies
@@ -558,6 +672,54 @@ fee_breakdown = blaaiz.fees.get_breakdown({
     'to_currency_id': "CAD",
     'to_amount': 500  # Recipient gets exactly 500 CAD
 })
+```
+
+### Rates
+
+#### List Exchange Rates
+
+```python
+rates = blaaiz.rates.list()
+print(f'Rates: {rates["data"]}')
+
+# Optional search_term filter (for example a currency pair)
+ngn_rates = blaaiz.rates.list({'search_term': "NGN"})
+```
+
+### Swaps
+
+#### Swap Between Business Wallets
+
+```python
+swap = blaaiz.swaps.initiate({
+    'from_business_wallet_id': "wallet-a",
+    'to_business_wallet_id': "wallet-b",
+    'amount': 100,
+    'amount_type': "from"  # Optional: "from" (default) or "to"
+})
+
+print(f'Swap: {swap["data"]["business_swap_transaction"]}')
+```
+
+### Refunds
+
+#### Initiate a Refund
+
+```python
+refund = blaaiz.refunds.initiate({
+    'transaction_id': "transaction-id",
+    'reason': "Customer request",  # Optional; max 250
+    'reference': "refund-ref-01"   # Optional; max 100
+})
+
+print(f'Refund ID: {refund["data"]["id"]}')
+```
+
+#### Get a Refund
+
+```python
+refund = blaaiz.refunds.get("refund-id")
+print(f'Refund status: {refund["data"]["status"]}')
 ```
 
 ### Webhooks
@@ -855,6 +1017,26 @@ For support and additional documentation:
 - Issues: https://github.com/blaaiz/blaaiz-python-sdk/issues
 
 ## Changelog
+
+### 1.4.0
+
+- **Rate Service** (new): added `rates.list()` for exchange rate lookups
+- **Swap Service** (new): added `swaps.initiate()` to swap funds between business wallets
+- **Refund Service** (new): added `refunds.initiate()` and `refunds.get()`
+- **Merchant Reference**: optional `merchant_reference` (max 255, unique per business) on `payouts.initiate()` and `collections.initiate()`; also returned on transactions, filterable in `transactions.list()`, and resolvable by `transactions.get()`
+- **Bank Service**:
+  - Added `verify_payee()` (GBP confirmation of payee) and `verify_iban()` (SEPA reachability)
+  - `list()` now accepts optional `currency`/`country`/`country_id` filters
+- **Collection Service**:
+  - Added `initiate_interac_money_request()` (CAD)
+  - Fixed `initiate()`: requires only `method`, `amount`, `wallet_id`; card method additionally requires the card fields; the non-existent `currency` field is no longer required
+  - `initiate_crypto()` now validates `amount`, `wallet_id`, `network`, `token`
+  - `get_crypto_networks()` now accepts an optional `transaction_type` filter
+- **Customer Service**:
+  - Fixed `create()`: `id_type`/`id_number` are individual-only; business now requires `business_name`, `registration_number`, `incorporation_country`
+  - Fixed `upload_files()` to use POST (was PUT)
+  - Added `identity_back` file category to `upload_file_complete()`
+  - Added `submit()`, `upgrade_kyb_scope()`, `delete_owner()`, `get_owner_file_presigned_url()`, `upload_owner_files()`, and document CRUD (`list_documents()`, `get_document()`, `get_document_presigned_url()`, `create_document()`, `update_document()`, `delete_document()`)
 
 ### 1.2.0
 - **OAuth 2.0 Authentication**:

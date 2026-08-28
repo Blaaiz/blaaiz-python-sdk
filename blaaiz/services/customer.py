@@ -27,26 +27,24 @@ class CustomerService:
         Returns:
             API response containing customer data
         """
-        required_fields = [
-            "type",
-            "email",
-            "country",
-            "id_type",
-            "id_number",
-        ]
+        required_fields = ["type", "email", "country"]
 
         for field in required_fields:
             if field not in customer_data or not customer_data[field]:
                 raise ValueError(f"{field} is required")
 
-        # Conditional validation based on customer type
+        # Personal-ID fields identify an individual; businesses identify via
+        # registration_number + incorporation_country instead.
         if customer_data["type"] == "individual":
-            if not customer_data.get("first_name"):
-                raise ValueError("first_name is required when type is individual")
-            if not customer_data.get("last_name"):
-                raise ValueError("last_name is required when type is individual")
-        elif customer_data["type"] == "business" and not customer_data.get("business_name"):
-            raise ValueError("business_name is required when type is business")
+            individual_fields = ["first_name", "last_name", "id_type", "id_number"]
+            for field in individual_fields:
+                if not customer_data.get(field):
+                    raise ValueError(f"{field} is required when type is individual")
+        elif customer_data["type"] == "business":
+            business_fields = ["business_name", "registration_number", "incorporation_country"]
+            for field in business_fields:
+                if not customer_data.get(field):
+                    raise ValueError(f"{field} is required when type is business")
 
         return self.client.make_request("POST", "/api/external/customer", customer_data)
 
@@ -142,7 +140,7 @@ class CustomerService:
             raise ValueError("Customer ID is required")
 
         return self.client.make_request(
-            "PUT", f"/api/external/customer/{customer_id}/files", file_data
+            "POST", f"/api/external/customer/{customer_id}/files", file_data
         )
 
     def list_beneficiaries(self, customer_id: str) -> Dict[str, Any]:
@@ -181,6 +179,245 @@ class CustomerService:
             "GET", f"/api/external/customer/{customer_id}/beneficiary/{beneficiary_id}"
         )
 
+    def submit(self, customer_id: str) -> Dict[str, Any]:
+        """
+        Submit a customer for verification.
+
+        Args:
+            customer_id: Customer ID
+
+        Returns:
+            API response
+        """
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+
+        return self.client.make_request("POST", f"/api/external/customer/{customer_id}/submit")
+
+    def upgrade_kyb_scope(self, customer_id: str, upgrade_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Upgrade a business customer's KYB scope from MINIMAL to FULL.
+
+        Args:
+            customer_id: Customer ID
+            upgrade_data: Upgrade information. Requires a non-empty ``owners``
+                list; the API requires the ownership percentages to sum to 100.
+
+        Returns:
+            API response
+        """
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+
+        owners = upgrade_data.get("owners") if upgrade_data else None
+        if not isinstance(owners, list) or len(owners) == 0:
+            raise ValueError("owners is required")
+
+        return self.client.make_request(
+            "POST", f"/api/external/customer/{customer_id}/upgrade-kyb-scope", upgrade_data
+        )
+
+    def delete_owner(self, customer_id: str, owner_id: str) -> Dict[str, Any]:
+        """
+        Delete a beneficial owner from a business customer.
+
+        Args:
+            customer_id: Customer ID
+            owner_id: Owner ID
+
+        Returns:
+            API response
+        """
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+
+        if not owner_id:
+            raise ValueError("Owner ID is required")
+
+        return self.client.make_request(
+            "DELETE", f"/api/external/customer/{customer_id}/owner/{owner_id}"
+        )
+
+    def get_owner_file_presigned_url(
+        self, customer_id: str, owner_id: str, presigned_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Get a presigned URL for uploading an owner's identity document.
+
+        Args:
+            customer_id: Customer ID
+            owner_id: Owner ID
+            presigned_data: Requires ``file_category``
+                (``id_document_front`` or ``id_document_back``).
+
+        Returns:
+            API response containing the presigned URL
+        """
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+
+        if not owner_id:
+            raise ValueError("Owner ID is required")
+
+        if not presigned_data or not presigned_data.get("file_category"):
+            raise ValueError("file_category is required")
+
+        return self.client.make_request(
+            "POST",
+            f"/api/external/customer/{customer_id}/owner/{owner_id}/file/presigned-url",
+            presigned_data,
+        )
+
+    def upload_owner_files(
+        self, customer_id: str, owner_id: str, file_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Associate uploaded identity files with an owner.
+
+        Args:
+            customer_id: Customer ID
+            owner_id: Owner ID
+            file_data: Requires ``id_document_front`` (uuid);
+                ``id_document_back`` (uuid) is optional.
+
+        Returns:
+            API response
+        """
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+
+        if not owner_id:
+            raise ValueError("Owner ID is required")
+
+        if not file_data or not file_data.get("id_document_front"):
+            raise ValueError("id_document_front is required")
+
+        return self.client.make_request(
+            "POST", f"/api/external/customer/{customer_id}/owner/{owner_id}/files", file_data
+        )
+
+    def list_documents(self, customer_id: str) -> Dict[str, Any]:
+        """
+        List all documents for a customer.
+
+        Args:
+            customer_id: Customer ID
+
+        Returns:
+            API response containing list of documents
+        """
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+
+        return self.client.make_request("GET", f"/api/external/customer/{customer_id}/document")
+
+    def get_document(self, customer_id: str, document_id: str) -> Dict[str, Any]:
+        """
+        Get a specific document for a customer.
+
+        Args:
+            customer_id: Customer ID
+            document_id: Document ID
+
+        Returns:
+            API response containing document data
+        """
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+
+        if not document_id:
+            raise ValueError("Document ID is required")
+
+        return self.client.make_request(
+            "GET", f"/api/external/customer/{customer_id}/document/{document_id}"
+        )
+
+    def get_document_presigned_url(self, customer_id: str) -> Dict[str, Any]:
+        """
+        Get a presigned URL for uploading a customer document.
+
+        Args:
+            customer_id: Customer ID
+
+        Returns:
+            API response containing the presigned URL
+        """
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+
+        return self.client.make_request(
+            "POST", f"/api/external/customer/{customer_id}/document/presigned-url"
+        )
+
+    def create_document(self, customer_id: str, document_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create a document record for a customer.
+
+        Args:
+            customer_id: Customer ID
+            document_data: Requires ``type``, ``name`` and ``file_id`` (uuid);
+                ``description`` is optional.
+
+        Returns:
+            API response containing the created document
+        """
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+
+        required_fields = ["type", "name", "file_id"]
+        for field in required_fields:
+            if not document_data or not document_data.get(field):
+                raise ValueError(f"{field} is required")
+
+        return self.client.make_request(
+            "POST", f"/api/external/customer/{customer_id}/document", document_data
+        )
+
+    def update_document(
+        self, customer_id: str, document_id: str, document_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Update a customer document.
+
+        Args:
+            customer_id: Customer ID
+            document_id: Document ID
+            document_data: Fields to update (all optional)
+
+        Returns:
+            API response containing the updated document
+        """
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+
+        if not document_id:
+            raise ValueError("Document ID is required")
+
+        return self.client.make_request(
+            "PUT", f"/api/external/customer/{customer_id}/document/{document_id}", document_data
+        )
+
+    def delete_document(self, customer_id: str, document_id: str) -> Dict[str, Any]:
+        """
+        Delete a customer document.
+
+        Args:
+            customer_id: Customer ID
+            document_id: Document ID
+
+        Returns:
+            API response
+        """
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+
+        if not document_id:
+            raise ValueError("Document ID is required")
+
+        return self.client.make_request(
+            "DELETE", f"/api/external/customer/{customer_id}/document/{document_id}"
+        )
+
     def upload_file_complete(
         self, customer_id: str, file_options: Dict[str, Any]
     ) -> Dict[str, Any]:
@@ -191,7 +428,8 @@ class CustomerService:
             customer_id: Customer ID
             file_options: File upload options containing:
                 - file: File content (bytes, str, or URL)
-                - file_category: Category ('identity', 'proof_of_address', 'liveness_check')
+                - file_category: Category ('identity', 'identity_back',
+                  'proof_of_address', 'liveness_check')
                 - filename: Optional filename
                 - content_type: Optional content type
 
@@ -215,9 +453,10 @@ class CustomerService:
         if not file_category:
             raise ValueError("file_category is required")
 
-        if file_category not in ["identity", "proof_of_address", "liveness_check"]:
+        if file_category not in ["identity", "identity_back", "proof_of_address", "liveness_check"]:
             raise ValueError(
-                "file_category must be one of: identity, proof_of_address, liveness_check"
+                "file_category must be one of: identity, identity_back, "
+                "proof_of_address, liveness_check"
             )
 
         presigned_response = None
@@ -272,6 +511,7 @@ class CustomerService:
             # Map file category to the correct field name expected by Laravel API
             file_field_mapping = {
                 "identity": "id_file",
+                "identity_back": "id_file_back",
                 "liveness_check": "liveness_check_file",
                 "proof_of_address": "proof_of_address_file",
             }
@@ -338,7 +578,7 @@ class CustomerService:
     def _download_file(self, url: str) -> Dict[str, Any]:
         """Download file from URL."""
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Blaaiz-Python-SDK/1.2.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": "Blaaiz-Python-SDK/1.4.0"})
 
             with urllib.request.urlopen(req, timeout=30) as response:
                 if response.status >= 300:
