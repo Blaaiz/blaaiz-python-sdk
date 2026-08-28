@@ -24,7 +24,7 @@ from .services import (
     RefundService,
 )
 
-__version__ = "1.2.0"
+__version__ = "1.4.0"
 __author__ = "Blaaiz Team"
 __email__ = "onboarding@blaaiz.com"
 
