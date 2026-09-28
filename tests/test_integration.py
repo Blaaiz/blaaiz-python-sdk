@@ -767,6 +767,41 @@ class TestSignaIntegration(unittest.TestCase):
 
         self.assertEqual(context.exception.status, 404)
 
+    def _assert_no_verdict_yet(self, call):
+        """Assert that a PII read returns 409. Skip the test on 403."""
+        with self.assertRaises(BlaaizError) as context:
+            call()
+        if context.exception.status == 403:
+            self.skipTest(
+                f"The credential lacks compliance-kyc:pii:read: {context.exception.message}"
+            )
+        self.assertEqual(context.exception.status, 409, context.exception.message)
+
+    def test_pii_reads_on_a_fresh_session(self):
+        """A fresh session has no verdict, so each PII read returns 409.
+
+        Only an OAuth token is scope-checked, so a 403 skips instead of failing.
+        """
+        created = self._create_session("pii")
+        session_id = created["data"]["data"]["id"]
+
+        self._assert_no_verdict_yet(
+            lambda: self.blaaiz.signa.get_session_applicant_data(session_id)
+        )
+        self._assert_no_verdict_yet(lambda: self.blaaiz.signa.list_session_documents(session_id))
+        self._assert_no_verdict_yet(
+            lambda: self.blaaiz.signa.get_session_document(session_id, "placeholder-document-id")
+        )
+
+    def test_get_document_on_unknown_session_returns_404(self):
+        """An unknown session id surfaces as a 404 through BlaaizError."""
+        with self.assertRaises(BlaaizError) as context:
+            self.blaaiz.signa.get_session_document(
+                "00000000-0000-0000-0000-000000000000", "any-document-id"
+            )
+
+        self.assertEqual(context.exception.status, 404)
+
 
 if __name__ == "__main__":
     # Only run integration tests if API key is provided
