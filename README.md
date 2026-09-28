@@ -382,6 +382,29 @@ link = blaaiz.signa.issue_verification_link(hosted_session_id)  # a HOSTED sessi
 print(f'Verification link: {link["data"]["data"]["verification_link"]}')
 ```
 
+#### Read Captured Data
+
+Signa can return the personal data that it captured during a session: the applicant's details and the uploaded documents. These three reads need the `compliance-kyc:pii:read` scope. Blaaiz grants this scope to a credential only on request. The SDK requests the scope by default, and the API ignores it for a credential that does not hold it. With OAuth, a token without the scope gets HTTP 403.
+
+Each of the three reads returns HTTP 409 until the session reaches a verdict. A session reaches a verdict when its status becomes `APPROVED` or `REJECTED`.
+
+**Warning:** The response data is personal data. Do not log this data. Do not cache this data. Each response carries the `Cache-Control: no-store` header.
+
+```python
+applicant_data = blaaiz.signa.get_session_applicant_data(session_id)
+applicant = applicant_data['data']['data']  # None, or the captured applicant fields
+
+documents = blaaiz.signa.list_session_documents(session_id)
+available = [d for d in documents['data']['data'] if d['available']]
+
+download = blaaiz.signa.get_session_document(session_id, available[0]['id'])
+download_url = download['data']['data']['url']  # Valid for 15 minutes
+```
+
+`get_session_document` returns HTTP 410 when Signa no longer retains the document. The API limits `get_session_document` to 30 requests per minute and 600 requests per hour, for each business. Above these limits, the API returns HTTP 429.
+
+Anyone who has the download link can download the document until the link expires. Do not log the link. Do not send it to a client that you do not control.
+
 ### Collections
 
 #### Initiate Open Banking Collection (EUR/GBP)
