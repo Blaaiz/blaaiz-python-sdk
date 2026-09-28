@@ -70,7 +70,7 @@ class TestOAuthScope(unittest.TestCase):
     def test_default_scope_is_all_scopes_space_joined(self):
         client = BlaaizAPIClient(client_id="cid", client_secret="csecret")
         self.assertEqual(client.oauth_scope, " ".join(ALL_SCOPES))
-        self.assertEqual(len(ALL_SCOPES), 21)
+        self.assertEqual(len(ALL_SCOPES), 25)
 
     def test_explicit_empty_scope_is_preserved(self):
         client = BlaaizAPIClient(client_id="cid", client_secret="csecret", oauth_scope="")
@@ -84,7 +84,18 @@ class TestOAuthScope(unittest.TestCase):
 
     def test_all_scopes_order(self):
         self.assertEqual(ALL_SCOPES[0], "wallet:read")
-        self.assertEqual(ALL_SCOPES[-1], "rates:read")
+        self.assertEqual(ALL_SCOPES[-1], "compliance-kyc:pii:read")
+
+    def test_all_scopes_includes_signa_scopes(self):
+        self.assertEqual(
+            ALL_SCOPES[-4:],
+            [
+                "compliance-kyc:read",
+                "compliance-kyc:create",
+                "compliance-kyc:cancel",
+                "compliance-kyc:pii:read",
+            ],
+        )
 
 
 class TestOAuthTokenFetch(unittest.TestCase):

@@ -34,6 +34,10 @@ ALL_SCOPES: List[str] = [
     "webhook:write",
     "webhook:replay",
     "rates:read",
+    "compliance-kyc:read",
+    "compliance-kyc:create",
+    "compliance-kyc:cancel",
+    "compliance-kyc:pii:read",
 ]
 
 
@@ -87,7 +91,7 @@ class BlaaizAPIClient:
         self.default_headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "User-Agent": "Blaaiz-Python-SDK/1.4.0",
+            "User-Agent": "Blaaiz-Python-SDK/1.4.0",  # x-release-please-version
         }
         if not self.use_oauth:
             self.default_headers["x-blaaiz-api-key"] = self.api_key

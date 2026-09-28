@@ -16,6 +16,7 @@ from .webhook import WebhookService
 from .rate import RateService
 from .swap import SwapService
 from .refund import RefundService
+from .signa import SignaService
 
 __all__ = [
     "CustomerService",
@@ -32,4 +33,5 @@ __all__ = [
     "RateService",
     "SwapService",
     "RefundService",
+    "SignaService",
 ]

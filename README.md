@@ -68,6 +68,7 @@ When both OAuth credentials and an API key are configured, OAuth is used. If nei
 - **Virtual Bank Accounts**: Create and manage virtual accounts for NGN collections
 - **Wallets**: Multi-currency wallet management
 - **Transactions**: Transaction history and status tracking
+- **Signa**: Merchant KYC/KYB verification sessions and document collection
 - **Webhooks**: Webhook configuration and management with signature verification
 - **Files**: Document upload with pre-signed URLs
 - **Fees**: Real-time fee calculations and breakdowns
@@ -288,6 +289,121 @@ one = blaaiz.customers.get_document('customer-id', document['data']['id'])
 blaaiz.customers.update_document('customer-id', document['data']['id'], {'name': "Renamed"})
 blaaiz.customers.delete_document('customer-id', document['data']['id'])
 ```
+
+### Signa Merchant KYC/KYB Sessions
+
+Signa lets a business create and manage KYC/KYB verification sessions for its own customers. Each session can require `DOCUMENTS`, `SELFIE`, `FACE_MATCH`, or `PROOF_OF_ADDRESS`.
+
+A session has one of two fulfilment modes:
+
+- `HEADLESS`: your server uploads the documents and submits the session. Document uploads and `submit_session` work only in this mode.
+- `HOSTED`: the customer opens a Blaaiz verification link. `issue_verification_link` works only in this mode.
+
+The API currently accepts only these combinations of `requirements` and `fulfilment_mode`. It refuses any other combination when you create the session.
+
+| `requirements` | `fulfilment_mode` |
+| --- | --- |
+| `DOCUMENTS` | `HEADLESS` |
+| `DOCUMENTS`, `SELFIE`, `FACE_MATCH` | `HOSTED` |
+| `DOCUMENTS`, `SELFIE`, `FACE_MATCH`, `PROOF_OF_ADDRESS` | `HOSTED` |
+| `DOCUMENTS`, `PROOF_OF_ADDRESS` | `HOSTED` or `HEADLESS` |
+| `PROOF_OF_ADDRESS` | `HOSTED` or `HEADLESS` |
+
+If you do not send `fulfilment_mode`, the API uses the first mode in the row for your set. The settings of your business can limit the modes that you can use.
+
+```python
+session = blaaiz.signa.create_session({
+    'customer_reference': "customer-123",
+    'idempotency_key': "signa-request-123",
+    'requirements': ["DOCUMENTS"],
+    'fulfilment_mode': "HEADLESS",
+    'applicant': {
+        'first_name': "Ada",
+        'last_name': "Lovelace",
+        'country': "GBR"
+    }
+})
+
+session_id = session['data']['data']['id']
+print(f'Session: {session["data"]["data"]}')
+
+# limit is 1 to 100 (default 20); offset is 0 or more (default 0)
+sessions = blaaiz.signa.list_sessions({'limit': 20, 'offset': 0})
+current = blaaiz.signa.get_session(session_id)
+```
+
+#### Uploading Signa Documents
+
+For a very small document, send the content inline as base64. The API can reject a request body that is larger than approximately 8 KB. Each request must use one transport: `content_base64` or a staged `file_name`.
+
+```python
+blaaiz.signa.upload_session_document(session_id, {
+    'filename': "passport.jpg",
+    'content_type': "image/jpeg",
+    'id_doc_type': "PASSPORT",
+    'country': "GBR",
+    'content_base64': "...base64 document bytes..."
+})
+```
+
+For all other documents, use the staged upload flow. The upload URL response contains the exact headers to send with the direct `PUT` request. After the PUT request succeeds, register the returned `file_name` with Signa.
+
+```python
+upload = blaaiz.signa.create_document_upload_url(session_id, {
+    'file_name': "passport.jpg",
+    'id_doc_type': "PASSPORT"
+})
+
+# PUT the document bytes to upload['data']['data']['url'] with upload['data']['data']['headers'].
+# The URL is short-lived and its headers are part of its signature.
+
+blaaiz.signa.upload_session_document(session_id, {
+    'filename': "passport.jpg",
+    'content_type': "image/jpeg",
+    'id_doc_type': "PASSPORT",
+    'country': "GBR",
+    'file_name': upload['data']['data']['file_name']
+})
+```
+
+After you upload the documents, submit the session. To stop a session, cancel it.
+
+```python
+blaaiz.signa.submit_session(session_id)
+blaaiz.signa.cancel_session(other_session_id)  # a session that you do not need
+```
+
+Each Signa method maps to one `/api/external/compliance/kyc/sessions` route. The API returns HTTP 422 for a validation failure and HTTP 404 for an unknown session, both through the SDK's normal `BlaaizError`.
+
+For a `HOSTED` session, issue or rotate the customer's verification link:
+
+```python
+link = blaaiz.signa.issue_verification_link(hosted_session_id)  # a HOSTED session
+print(f'Verification link: {link["data"]["data"]["verification_link"]}')
+```
+
+#### Read Captured Data
+
+Signa can return the personal data that it captured during a session: the applicant's details and the uploaded documents. These three reads need the `compliance-kyc:pii:read` scope. Blaaiz grants this scope to a credential only on request. The SDK requests the scope by default, and the API ignores it for a credential that does not hold it. With OAuth, a token without the scope gets HTTP 403.
+
+Each of the three reads returns HTTP 409 until the session reaches a verdict. A session reaches a verdict when its status becomes `APPROVED` or `REJECTED`.
+
+**Warning:** The response data is personal data. Do not log this data. Do not cache this data. Each response carries the `Cache-Control: no-store` header.
+
+```python
+applicant_data = blaaiz.signa.get_session_applicant_data(session_id)
+applicant = applicant_data['data']['data']  # None, or the captured applicant fields
+
+documents = blaaiz.signa.list_session_documents(session_id)
+available = [d for d in documents['data']['data'] if d['available']]
+
+download = blaaiz.signa.get_session_document(session_id, available[0]['id'])
+download_url = download['data']['data']['url']  # Valid for 15 minutes
+```
+
+`get_session_document` returns HTTP 410 when Signa no longer retains the document. The API limits `get_session_document` to 30 requests per minute and 600 requests per hour, for each business. Above these limits, the API returns HTTP 429.
+
+Anyone who has the download link can download the document until the link expires. Do not log the link. Do not send it to a client that you do not control.
 
 ### Collections
 
@@ -729,15 +845,33 @@ print(f'Refund status: {refund["data"]["status"]}')
 ```python
 webhook = blaaiz.webhooks.register({
     'collection_url': "https://your-domain.com/webhooks/collection",
-    'payout_url': "https://your-domain.com/webhooks/payout"
+    'payout_url': "https://your-domain.com/webhooks/payout",
+    'kyc_url': "https://your-domain.com/webhooks/kyc"  # Optional Signa callback
 })
 ```
+
+On `webhooks.update`, `kyc_url` is also optional. If you do not send `kyc_url`, the API keeps the current value. To remove the value, send `'kyc_url': None`.
 
 #### Get Webhook Configuration
 
 ```python
 webhook_config = blaaiz.webhooks.get()
 print(f'Webhook URLs: {webhook_config["data"]}')
+```
+
+#### Verify Signa Webhooks
+
+Signa callbacks use the same `x-blaaiz-timestamp` and `x-blaaiz-signature` headers and HMAC-SHA256 scheme as collection and payout webhooks. Keep the request body raw. Then call `construct_event` (or `verify_signature`) on `blaaiz.webhooks`.
+
+```python
+event = blaaiz.webhooks.construct_event(
+    raw_body,       # Raw webhook payload string
+    signature,      # x-blaaiz-signature header
+    timestamp,      # x-blaaiz-timestamp header
+    webhook_secret  # Your API secret key
+)
+
+print(f'Verified Signa event: {event}')
 ```
 
 #### Replay Webhook
@@ -1004,6 +1138,8 @@ mypy blaaiz/
 4. Add tests for new functionality
 5. Run the test suite
 6. Submit a pull request
+
+See [RELEASING.md](RELEASING.md) for how a merged pull request becomes a release.
 
 ## License
 

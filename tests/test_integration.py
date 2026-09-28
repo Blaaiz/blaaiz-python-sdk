@@ -7,6 +7,9 @@ Set BLAAIZ_API_KEY environment variable to run these tests.
 
 import unittest
 import os
+import time
+import base64
+import urllib.request
 from pathlib import Path
 from blaaiz import Blaaiz, BlaaizError
 
@@ -615,6 +618,189 @@ class TestBlaaizIntegration(unittest.TestCase):
             print(
                 f"  - {file_info['name']} ({file_info['category']}): {file_info['size']} bytes -> {file_info['file_id']}"
             )
+
+
+class TestSignaIntegration(unittest.TestCase):
+    """Integration tests for Signa merchant KYC/KYB sessions.
+
+    Requires the API key to hold the compliance-kyc:read/create/cancel scopes.
+    The API only accepts server-side uploads and submit on HEADLESS sessions,
+    and only issues verification links for HOSTED ones, so each flow gets its
+    own session. Dependent steps share one test method so a failed step fails
+    the flow instead of leaving later steps without a session.
+    """
+
+    def setUp(self):
+        """Set up integration test."""
+        self.api_key = os.getenv("BLAAIZ_API_KEY")
+        if not self.api_key:
+            self.skipTest("BLAAIZ_API_KEY environment variable not set")
+
+        self.blaaiz = Blaaiz(self.api_key)
+        self.run_id = f"{int(time.time())}-{os.urandom(4).hex()}"
+
+    def _create_session(self, suffix, overrides=None):
+        data = {
+            "customer_reference": f"sdk-it-{self.run_id}-{suffix}",
+            "idempotency_key": f"sdk-it-{self.run_id}-{suffix}",
+            "requirements": ["DOCUMENTS"],
+            "fulfilment_mode": "HEADLESS",
+            "applicant": {"first_name": "Ada", "last_name": "Lovelace", "country": "GBR"},
+        }
+        if overrides:
+            data.update(overrides)
+        return self.blaaiz.signa.create_session(data)
+
+    def _put_to_upload_url(self, url, headers, body):
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={**headers, "Content-Length": str(len(body))},
+            method="PUT",
+        )
+        with urllib.request.urlopen(req, timeout=30) as response:
+            return response.status
+
+    def test_headless_session_create_upload_and_submit_flow(self):
+        """Create, idempotent replay, list+get, staged upload, submit."""
+        try:
+            created = self._create_session("main")
+        except BlaaizError as e:
+            self.fail(f"Failed to create headless session: {e.message}")
+
+        session = created["data"]["data"]
+        self.assertIsInstance(session["id"], str)
+        self.assertIsInstance(session["status"], str)
+        self.assertEqual(session["customer_reference"], f"sdk-it-{self.run_id}-main")
+        session_id = session["id"]
+
+        # A repeated idempotency key must replay the same session.
+        replay = self._create_session("main")
+        self.assertEqual(replay["data"]["data"]["id"], session_id)
+
+        listing = self.blaaiz.signa.list_sessions({"limit": 50, "offset": 0})
+        self.assertIsInstance(listing["data"]["data"]["sessions"], list)
+
+        found = self.blaaiz.signa.get_session(session_id)
+        self.assertEqual(found["data"]["data"]["id"], session_id)
+
+        pdf_path = Path(__file__).parent / "blank.pdf"
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+
+        upload = self.blaaiz.signa.create_document_upload_url(
+            session_id, {"file_name": "blank.pdf", "id_doc_type": "PASSPORT"}
+        )
+        upload_data = upload["data"]["data"]
+        self.assertTrue(upload_data["url"].startswith("https://"))
+        self.assertIsInstance(upload_data["file_name"], str)
+        self.assertIsInstance(upload_data["headers"], dict)
+
+        status = self._put_to_upload_url(upload_data["url"], upload_data["headers"], pdf_bytes)
+        self.assertGreaterEqual(status, 200)
+        self.assertLess(status, 300)
+
+        registered = self.blaaiz.signa.upload_session_document(
+            session_id,
+            {
+                "filename": "blank.pdf",
+                "content_type": "application/pdf",
+                "id_doc_type": "PASSPORT",
+                "country": "GBR",
+                "file_name": upload_data["file_name"],
+            },
+        )
+        self.assertEqual(registered["data"]["data"]["id"], session_id)
+
+        submitted = self.blaaiz.signa.submit_session(session_id)
+        self.assertEqual(submitted["data"]["data"]["id"], session_id)
+
+    def test_headless_session_accepts_an_inline_document(self):
+        """An inline base64 upload registers against its own headless session."""
+        created = self._create_session("inline")
+        session_id = created["data"]["data"]["id"]
+
+        pdf_bytes = (Path(__file__).parent / "blank.pdf").read_bytes()
+        inline = self.blaaiz.signa.upload_session_document(
+            session_id,
+            {
+                "filename": "blank.pdf",
+                "content_type": "application/pdf",
+                "id_doc_type": "PASSPORT",
+                "country": "GBR",
+                "content_base64": base64.b64encode(pdf_bytes).decode("ascii"),
+            },
+        )
+
+        self.assertEqual(inline["data"]["data"]["id"], session_id)
+
+    def test_hosted_session_issues_a_verification_link(self):
+        """Verification links are only issued for HOSTED sessions."""
+        hosted = self._create_session(
+            "hosted",
+            {
+                "requirements": ["DOCUMENTS", "SELFIE", "FACE_MATCH"],
+                "fulfilment_mode": "HOSTED",
+            },
+        )
+        hosted_id = hosted["data"]["data"]["id"]
+
+        link = self.blaaiz.signa.issue_verification_link(hosted_id)
+
+        self.assertTrue(link["data"]["data"]["verification_link"].startswith("https://"))
+
+    def test_cancel_a_separate_session(self):
+        """Cancelling changes the session status."""
+        created = self._create_session("cancel")
+        created_data = created["data"]["data"]
+
+        cancelled = self.blaaiz.signa.cancel_session(created_data["id"])
+        cancelled_data = cancelled["data"]["data"]
+
+        self.assertEqual(cancelled_data["id"], created_data["id"])
+        self.assertNotEqual(cancelled_data["status"], created_data["status"])
+
+    def test_get_unknown_session_returns_404(self):
+        """An unknown session id surfaces as a 404 through BlaaizError."""
+        with self.assertRaises(BlaaizError) as context:
+            self.blaaiz.signa.get_session("00000000-0000-0000-0000-000000000000")
+
+        self.assertEqual(context.exception.status, 404)
+
+    def _assert_no_verdict_yet(self, call):
+        """Assert that a PII read returns 409. Skip the test on 403."""
+        with self.assertRaises(BlaaizError) as context:
+            call()
+        if context.exception.status == 403:
+            self.skipTest(
+                f"The credential lacks compliance-kyc:pii:read: {context.exception.message}"
+            )
+        self.assertEqual(context.exception.status, 409, context.exception.message)
+
+    def test_pii_reads_on_a_fresh_session(self):
+        """A fresh session has no verdict, so each PII read returns 409.
+
+        Only an OAuth token is scope-checked, so a 403 skips instead of failing.
+        """
+        created = self._create_session("pii")
+        session_id = created["data"]["data"]["id"]
+
+        self._assert_no_verdict_yet(
+            lambda: self.blaaiz.signa.get_session_applicant_data(session_id)
+        )
+        self._assert_no_verdict_yet(lambda: self.blaaiz.signa.list_session_documents(session_id))
+        self._assert_no_verdict_yet(
+            lambda: self.blaaiz.signa.get_session_document(session_id, "placeholder-document-id")
+        )
+
+    def test_get_document_on_unknown_session_returns_404(self):
+        """An unknown session id surfaces as a 404 through BlaaizError."""
+        with self.assertRaises(BlaaizError) as context:
+            self.blaaiz.signa.get_session_document(
+                "00000000-0000-0000-0000-000000000000", "any-document-id"
+            )
+
+        self.assertEqual(context.exception.status, 404)
 
 
 if __name__ == "__main__":
