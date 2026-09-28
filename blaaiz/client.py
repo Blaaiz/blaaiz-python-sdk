@@ -37,6 +37,7 @@ ALL_SCOPES: List[str] = [
     "compliance-kyc:read",
     "compliance-kyc:create",
     "compliance-kyc:cancel",
+    "compliance-kyc:pii:read",
 ]
 
 
