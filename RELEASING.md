@@ -25,6 +25,11 @@ creates a tag by hand.
 
 - Do not change the version number by hand.
 - Do not create a tag or a GitHub Release by hand.
+- Merge a pull request with **Create a merge commit**, and give it a plain title that is not a
+  Conventional Commit. GitHub copies the title into the merge commit, and release-please reads a
+  Conventional Commit title there as an extra changelog line.
+- Do not squash-merge a pull request that has a plain title. release-please then ignores all of its
+  changes.
 
 ## Keep the SDKs on one version
 
@@ -48,9 +53,10 @@ Do not use `update_version.py` for a release. release-please does this work.
 
 ## Note on the release pull request
 
-GitHub Actions does not run CI on a pull request that `GITHUB_TOKEN` opens, so the release pull
-request shows no checks. The pull request changes only version strings and `CHANGELOG.md`. After
-you merge it, CI runs on `main`, and the `publish` job waits for the tests to pass first.
+GitHub holds the CI runs of a pull request that GitHub Actions opens. To run CI on the release PR,
+select **Approve and run** on it. The `publish` job does not run on a pull request. The release PR
+changes only version strings, `.release-please-manifest.json`, and `CHANGELOG.md`. After you merge
+it, CI runs on `main`, and the `publish` job waits for the tests to pass first.
 
 ## Required setup
 
