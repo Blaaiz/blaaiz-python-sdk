@@ -34,6 +34,9 @@ ALL_SCOPES: List[str] = [
     "webhook:write",
     "webhook:replay",
     "rates:read",
+    "compliance-kyc:read",
+    "compliance-kyc:create",
+    "compliance-kyc:cancel",
 ]
 
 
