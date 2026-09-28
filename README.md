@@ -1139,6 +1139,8 @@ mypy blaaiz/
 5. Run the test suite
 6. Submit a pull request
 
+See [RELEASING.md](RELEASING.md) for how a merged pull request becomes a release.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.

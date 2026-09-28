@@ -79,6 +79,25 @@ jobs:
         python -m pytest tests/test_integration.py -v
       if: env.BLAAIZ_API_KEY != ''
 
+  release-please:
+    runs-on: ubuntu-22.04
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: release-please
+      cancel-in-progress: false
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
   build:
     runs-on: ubuntu-22.04
     needs: test
@@ -112,11 +131,24 @@ jobs:
 
   publish:
     runs-on: ubuntu-22.04
-    needs: [test, build]
-    if: github.event_name == 'release' && github.event.action == 'published'
-    
+    needs: [test, build, release-please]
+    # A release that release-please creates with GITHUB_TOKEN does not start a
+    # new workflow run, so publish runs in this run when release_created is true.
+    # !cancelled() keeps it alive on a manual release event, where release-please
+    # is skipped and would otherwise skip this job.
+    if: >-
+      !cancelled()
+      && needs.test.result == 'success'
+      && needs.build.result == 'success'
+      && (needs.release-please.outputs.release_created == 'true'
+          || (github.event_name == 'release' && github.event.action == 'published'))
+
     steps:
     - uses: actions/checkout@v4
+      with:
+        # The tagged commit, not the pushed one: a later push's run can create
+        # the release for an earlier merge.
+        ref: ${{ needs.release-please.outputs.tag_name || github.ref }}
     
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -134,7 +166,6 @@ jobs:
     
     - name: Publish to PyPI
       env:
-        BLAAIZ_API_KEY: ${{ secrets.BLAAIZ_API_KEY }}
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
       run: |

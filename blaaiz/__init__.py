@@ -25,7 +25,7 @@ from .services import (
     SignaService,
 )
 
-__version__ = "1.4.0"
+__version__ = "1.4.0"  # x-release-please-version
 __author__ = "Blaaiz Team"
 __email__ = "onboarding@blaaiz.com"
 
