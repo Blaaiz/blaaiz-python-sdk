@@ -183,6 +183,64 @@ class SignaService:
             "POST", f"{BASE_PATH}/{self._encode(session_id)}/verification-link"
         )
 
+    def get_session_applicant_data(self, session_id: str) -> Dict[str, Any]:
+        """
+        Get the applicant data captured for a session. Requires the
+        ``compliance-kyc:pii:read`` scope, and returns 409 until the session
+        has a verdict (APPROVED or REJECTED).
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            API response containing applicant data. The data is ``None``
+            when the session has a verdict but no applicant data was captured
+        """
+        self._validate_session_id(session_id)
+
+        return self.client.make_request(
+            "GET", f"{BASE_PATH}/{self._encode(session_id)}/applicant-data"
+        )
+
+    def list_session_documents(self, session_id: str) -> Dict[str, Any]:
+        """
+        List the documents captured for a session. Requires the
+        ``compliance-kyc:pii:read`` scope, and returns 409 until the session
+        has a verdict (APPROVED or REJECTED).
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            API response containing the list of captured documents
+        """
+        self._validate_session_id(session_id)
+
+        return self.client.make_request("GET", f"{BASE_PATH}/{self._encode(session_id)}/documents")
+
+    def get_session_document(self, session_id: str, document_id: str) -> Dict[str, Any]:
+        """
+        Get a 15-minute download link for one captured document. Requires the
+        ``compliance-kyc:pii:read`` scope, returns 409 until the session has a
+        verdict (APPROVED or REJECTED), and 410 once the document is no
+        longer retained.
+
+        Args:
+            session_id: Session ID
+            document_id: Document ID
+
+        Returns:
+            API response containing ``url``, ``content_type`` and
+            ``expires_at`` for a short-lived download link
+        """
+        self._validate_session_id(session_id)
+        self._validate_document_id(document_id)
+
+        return self.client.make_request(
+            "GET",
+            f"{BASE_PATH}/{self._encode(session_id)}/documents/{self._encode(document_id)}",
+        )
+
     # Short aliases mirror the create/list/get style used by the other SDK resources.
     def create(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
         return self.create_session(session_data)
@@ -263,5 +321,9 @@ class SignaService:
         if not session_id:
             raise ValueError("Session ID is required")
 
-    def _encode(self, session_id: str) -> str:
-        return urllib.parse.quote(session_id, safe="")
+    def _validate_document_id(self, document_id: str) -> None:
+        if not document_id:
+            raise ValueError("Document ID is required")
+
+    def _encode(self, path_segment: str) -> str:
+        return urllib.parse.quote(path_segment, safe="")

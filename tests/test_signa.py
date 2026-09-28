@@ -179,6 +179,86 @@ class TestSignaServiceDocuments(unittest.TestCase):
         )
 
 
+class TestSignaServicePiiReads(unittest.TestCase):
+    """Applicant data, document list, and document download."""
+
+    def setUp(self):
+        self.mock_client = MagicMock()
+        self.service = SignaService(self.mock_client)
+
+    def test_get_session_applicant_data(self):
+        """GET .../applicant-data, response passed through unchanged."""
+        response = {"data": {"data": None}}
+        self.mock_client.make_request.return_value = response
+
+        result = self.service.get_session_applicant_data("session-123")
+
+        self.mock_client.make_request.assert_called_once_with(
+            "GET", f"{BASE_PATH}/session-123/applicant-data"
+        )
+        self.assertEqual(result, response)
+
+    def test_get_session_applicant_data_encodes_session_id(self):
+        """A session id containing '/' is percent-encoded as a single path segment."""
+        self.mock_client.make_request.return_value = {"data": {}}
+
+        self.service.get_session_applicant_data("session/123")
+
+        self.mock_client.make_request.assert_called_once_with(
+            "GET", f"{BASE_PATH}/session%2F123/applicant-data"
+        )
+
+    def test_list_session_documents(self):
+        """GET .../documents, response passed through unchanged."""
+        response = {"data": {"data": []}}
+        self.mock_client.make_request.return_value = response
+
+        result = self.service.list_session_documents("session-123")
+
+        self.mock_client.make_request.assert_called_once_with(
+            "GET", f"{BASE_PATH}/session-123/documents"
+        )
+        self.assertEqual(result, response)
+
+    def test_list_session_documents_encodes_session_id(self):
+        """A session id containing '/' is percent-encoded as a single path segment."""
+        self.mock_client.make_request.return_value = {"data": {}}
+
+        self.service.list_session_documents("session/123")
+
+        self.mock_client.make_request.assert_called_once_with(
+            "GET", f"{BASE_PATH}/session%2F123/documents"
+        )
+
+    def test_get_session_document(self):
+        """GET .../documents/{documentId}, response passed through unchanged."""
+        response = {
+            "data": {
+                "url": "https://download",
+                "content_type": "application/pdf",
+                "expires_at": "x",
+            }
+        }
+        self.mock_client.make_request.return_value = response
+
+        result = self.service.get_session_document("session-123", "doc-1")
+
+        self.mock_client.make_request.assert_called_once_with(
+            "GET", f"{BASE_PATH}/session-123/documents/doc-1"
+        )
+        self.assertEqual(result, response)
+
+    def test_get_session_document_encodes_both_ids(self):
+        """Both session id and document id are percent-encoded as single path segments."""
+        self.mock_client.make_request.return_value = {"data": {}}
+
+        self.service.get_session_document("session/123", "doc/1")
+
+        self.mock_client.make_request.assert_called_once_with(
+            "GET", f"{BASE_PATH}/session%2F123/documents/doc%2F1"
+        )
+
+
 class TestSignaServiceValidation(unittest.TestCase):
     """Client-side validation that runs before any request."""
 
@@ -236,6 +316,30 @@ class TestSignaServiceValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             self.service.issue_verification_link("")
         self.assertEqual(str(context.exception), "Session ID is required")
+        self._assert_no_http_call()
+
+    def test_get_session_applicant_data_requires_id(self):
+        with self.assertRaises(ValueError) as context:
+            self.service.get_session_applicant_data("")
+        self.assertEqual(str(context.exception), "Session ID is required")
+        self._assert_no_http_call()
+
+    def test_list_session_documents_requires_id(self):
+        with self.assertRaises(ValueError) as context:
+            self.service.list_session_documents("")
+        self.assertEqual(str(context.exception), "Session ID is required")
+        self._assert_no_http_call()
+
+    def test_get_session_document_requires_session_id(self):
+        with self.assertRaises(ValueError) as context:
+            self.service.get_session_document("", "doc-1")
+        self.assertEqual(str(context.exception), "Session ID is required")
+        self._assert_no_http_call()
+
+    def test_get_session_document_requires_document_id(self):
+        with self.assertRaises(ValueError) as context:
+            self.service.get_session_document("session-123", "")
+        self.assertEqual(str(context.exception), "Document ID is required")
         self._assert_no_http_call()
 
     # -- createSession --
