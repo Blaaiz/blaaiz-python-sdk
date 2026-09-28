@@ -22,6 +22,7 @@ from .services import (
     RateService,
     SwapService,
     RefundService,
+    SignaService,
 )
 
 __version__ = "1.4.0"
@@ -47,4 +48,5 @@ __all__ = [
     "RateService",
     "SwapService",
     "RefundService",
+    "SignaService",
 ]

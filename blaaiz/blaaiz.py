@@ -20,6 +20,7 @@ from .services import (
     RateService,
     SwapService,
     RefundService,
+    SignaService,
 )
 
 
@@ -79,6 +80,7 @@ class Blaaiz:
         self.rates = RateService(self.client)
         self.swaps = SwapService(self.client)
         self.refunds = RefundService(self.client)
+        self.signa = SignaService(self.client)
 
     def test_connection(self) -> bool:
         """
