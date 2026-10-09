@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/Blaaiz/blaaiz-python-sdk/compare/v1.5.0...v1.6.0) (2026-10-09)
+
+
+### Features
+
+* support mobile money payouts and list mobile money operators ([61a2955](https://github.com/Blaaiz/blaaiz-python-sdk/commit/61a29555c9356b1406e17c74767c9b4983b77058))
+
 ## [1.5.0](https://github.com/Blaaiz/blaaiz-python-sdk/compare/v1.4.0...v1.5.0) (2026-09-28)
 
 
