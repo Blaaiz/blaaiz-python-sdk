@@ -49,6 +49,13 @@ class TestSignaIdService(unittest.TestCase):
             ],
         )
 
+    def test_get_wallet_status_encodes_the_address(self):
+        self.service.get_wallet_status("0xabc/def")
+
+        self.mock_client.make_request.assert_called_once_with(
+            "GET", "/api/v1/signa-id/public/wallets/0xabc%2Fdef/status"
+        )
+
     def test_get_wallet_status_with_and_without_chain_id(self):
         self.service.get_wallet_status("0xabc")
         self.service.get_wallet_status("0xabc", chain_id=8453)
