@@ -13,6 +13,7 @@ from .services import (
     VirtualBankAccountService,
     TransactionService,
     BankService,
+    MomoOperatorService,
     CurrencyService,
     FeesService,
     FileService,
@@ -73,6 +74,7 @@ class Blaaiz:
         self.virtual_bank_accounts = VirtualBankAccountService(self.client)
         self.transactions = TransactionService(self.client)
         self.banks = BankService(self.client)
+        self.momo_operators = MomoOperatorService(self.client)
         self.currencies = CurrencyService(self.client)
         self.fees = FeesService(self.client)
         self.files = FileService(self.client)

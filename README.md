@@ -64,7 +64,7 @@ When both OAuth credentials and an API key are configured, OAuth is used. If nei
 
 - **Customer Management**: Create, update, and manage customers with KYC verification
 - **Collections**: Support for multiple collection methods (Open Banking, Card, Crypto, Bank Transfer)
-- **Payouts**: Bank transfers and Interac payouts across multiple currencies
+- **Payouts**: Bank transfers, mobile money and Interac payouts across multiple currencies
 - **Virtual Bank Accounts**: Create and manage virtual accounts for NGN collections
 - **Wallets**: Multi-currency wallet management
 - **Transactions**: Transaction history and status tracking
@@ -75,7 +75,7 @@ When both OAuth credentials and an API key are configured, OAuth is used. If nei
 - **Rates**: Exchange rate lookups
 - **Swaps**: Swap funds between business wallets
 - **Refunds**: Refund transactions and track refund status
-- **Banks & Currencies**: Access to supported banks, payee/IBAN verification and currencies
+- **Banks & Currencies**: Access to supported banks, mobile money operators, payee/IBAN verification and currencies
 - **Merchant Reference**: Attach your own reference to payouts and collections for reconciliation
 
 ## Supported Currencies & Methods
@@ -88,6 +88,7 @@ When both OAuth credentials and an API key are configured, OAuth is used. If nei
 
 ### Payouts
 - **Bank Transfer**: All supported currencies
+- **Mobile Money**: KES, UGX, TZS, XOF, GHS
 - **Interac**: CAD transactions
 
 ## API Reference
@@ -549,6 +550,28 @@ eur_payout = blaaiz.payouts.initiate({
 })
 ```
 
+#### Mobile Money Payout (KES, UGX, TZS, XOF, GHS)
+
+Use `mobile_money` when the destination currency supports it. Get the `mobile_money_operator_id` from `momo_operators.list()`.
+
+```python
+momo_payout = blaaiz.payouts.initiate({
+    'wallet_id': "wallet-id",
+    'customer_id': "customer-id",
+    'method': "mobile_money",
+    'from_amount': 100,
+    'from_currency_id': "USD",
+    'to_currency_id': "currency-id",  # The currency ID, not the code
+    'phone_number': "+254700000000",  # International format, starts with +
+    'mobile_money_operator_id': "operator-id",  # Required
+    'account_name': "Jane Doe",  # Required
+})
+```
+
+Use the currency ID for `to_currency_id`. XOF exists for more than one country (Benin and Côte d'Ivoire), so the API rejects the code `XOF` alone unless you also send `country_id` to pick the country.
+
+In the payout response and in webhooks, the recipient shows the phone number in `account_number` and the operator name in `bank_name`. The payout response also shows the operator code in `bank_code`.
+
 #### Interac Payout (CAD)
 
 ```python
@@ -726,6 +749,20 @@ print(f'Available Banks: {banks["data"]}')
 ngn_banks = blaaiz.banks.list({'currency': "NGN", 'country': "NG"})
 ```
 
+#### List Mobile Money Operators
+
+```python
+# Filter by the destination currency ID (preferred)
+operators = blaaiz.momo_operators.list({'currency_id': "currency-id"})
+
+# Or filter by country
+country_operators = blaaiz.momo_operators.list({'country_id': 1})
+
+print(f'Operators: {operators["data"]}')  # [{id, name, code, country_id}]
+```
+
+Both filters are optional. Use the `id` of an operator as `mobile_money_operator_id` in a mobile money payout.
+
 #### Bank Account Lookup
 
 ```python
@@ -765,6 +802,8 @@ print(f'SEPA reachable: {result["data"]["sepa_reachable"]}')
 currencies = blaaiz.currencies.list()
 print(f'Supported Currencies: {currencies["data"]}')
 ```
+
+Each currency also includes `country_id` and a `country` object (`id`, `name`, `short_name`, `alt_short_name`). Use them to tell apart currencies that exist for more than one country, such as XOF.
 
 ### Fees
 
