@@ -580,7 +580,7 @@ class CustomerService:
         try:
             req = urllib.request.Request(
                 url,
-                headers={"User-Agent": "Blaaiz-Python-SDK/1.5.0"},  # x-release-please-version
+                headers={"User-Agent": "Blaaiz-Python-SDK/1.6.0"},  # x-release-please-version
             )
 
             with urllib.request.urlopen(req, timeout=30) as response:
