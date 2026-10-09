@@ -18,6 +18,7 @@ from .rate import RateService
 from .swap import SwapService
 from .refund import RefundService
 from .signa import SignaService
+from .signa_id import SignaIdService
 
 __all__ = [
     "CustomerService",
@@ -36,4 +37,5 @@ __all__ = [
     "SwapService",
     "RefundService",
     "SignaService",
+    "SignaIdService",
 ]

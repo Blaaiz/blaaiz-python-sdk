@@ -24,6 +24,7 @@ from .services import (
     SwapService,
     RefundService,
     SignaService,
+    SignaIdService,
 )
 
 __version__ = "1.6.0"  # x-release-please-version
@@ -51,4 +52,5 @@ __all__ = [
     "SwapService",
     "RefundService",
     "SignaService",
+    "SignaIdService",
 ]

@@ -178,6 +178,36 @@ class TestSignaServiceDocuments(unittest.TestCase):
             "POST", f"{BASE_PATH}/session-123/verification-link"
         )
 
+    def test_issue_access_token_sends_no_body(self):
+        """The access-token endpoint is a bare POST with an encoded id."""
+        self.mock_client.make_request.return_value = {"data": {"access_token": "t"}}
+
+        self.service.issue_access_token("session/123")
+
+        self.mock_client.make_request.assert_called_once_with(
+            "POST", f"{BASE_PATH}/session%2F123/access-token"
+        )
+
+    def test_issue_access_token_requires_id(self):
+        with self.assertRaises(ValueError) as context:
+            self.service.issue_access_token("")
+        self.assertEqual(str(context.exception), "Session ID is required")
+        self.mock_client.make_request.assert_not_called()
+
+    def test_create_session_sends_redirect_url(self):
+        """redirect_url is passed through unchanged."""
+        data = {
+            "customer_reference": "customer-123",
+            "idempotency_key": "request-123",
+            "requirements": ["DOCUMENTS", "SELFIE", "FACE_MATCH"],
+            "redirect_url": "https://shop.example/kyc/done",
+        }
+        self.mock_client.make_request.return_value = {"data": {}}
+
+        self.service.create_session(data)
+
+        self.mock_client.make_request.assert_called_once_with("POST", BASE_PATH, data)
+
 
 class TestSignaServicePiiReads(unittest.TestCase):
     """Applicant data, document list, and document download."""
