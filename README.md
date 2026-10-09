@@ -49,6 +49,8 @@ blaaiz = Blaaiz(
 )
 ```
 
+The default set does not include `signa-id:release`. To call the `blaaiz.signa_id` release methods, send `oauth_scope` with that scope. See [Signa ID Release](#signa-id-release).
+
 ### Legacy API key
 
 ```python
@@ -230,6 +232,19 @@ file_association = blaaiz.customers.upload_files('customer-id', {
 })
 ```
 
+### Verify a Customer with a Signa Session
+
+If the person already passed a Signa session of your business, link that session to an individual customer. The person does not send their documents again.
+
+```python
+result = blaaiz.customers.link_kyc_session('customer-id', 'signa-session-id')
+print(result['data']['data']['verification_status'])  # VERIFIED
+```
+
+The call needs the `customer:write` and `compliance-kyc:pii:read` scopes. The session must be `APPROVED`, include `DOCUMENTS`, and be approved in the last 365 days. The customer details must agree with the verified person. If a condition fails, the API returns HTTP 400, 409, or 422, and the message names the condition.
+
+On success, the customer becomes `VERIFIED` and a `customer.status_changed` webhook fires. Blaaiz then copies the verified name, date of birth, document details, and images to the customer.
+
 ### Business Verification (KYB)
 
 #### Submit a Customer for Verification
@@ -333,6 +348,8 @@ sessions = blaaiz.signa.list_sessions({'limit': 20, 'offset': 0})
 current = blaaiz.signa.get_session(session_id)
 ```
 
+`create_session` also accepts an optional `redirect_url`, an https URL on your site. When the person finishes on a Blaaiz-hosted verification page, the page sends the person to this URL with `session_id` added. The URL never carries the result.
+
 #### Uploading Signa Documents
 
 For a very small document, send the content inline as base64. The API can reject a request body that is larger than approximately 8 KB. Each request must use one transport: `content_base64` or a staged `file_name`.
@@ -383,6 +400,16 @@ link = blaaiz.signa.issue_verification_link(hosted_session_id)  # a HOSTED sessi
 print(f'Verification link: {link["data"]["data"]["verification_link"]}')
 ```
 
+To open a `HOSTED` session in a popup on your own page with the Signa web SDK, issue an access token from your server. Send `access_token` to your page and call `signa.startSession({ accessToken })`.
+
+```python
+token = blaaiz.signa.issue_access_token(hosted_session_id)
+access_token = token['data']['data']['access_token']
+expires_at = token['data']['data']['expires_at']
+```
+
+The token is valid for 30 minutes. While more than 10 minutes remain, a new call returns the same token. With 10 minutes or less, the call returns a new token, and the previous token and verification link stop working. The token is a bearer credential: do not put it in a URL and do not log it.
+
 #### Read Captured Data
 
 Signa can return the personal data that it captured during a session: the applicant's details and the uploaded documents. These three reads need the `compliance-kyc:pii:read` scope. Blaaiz grants this scope to a credential only on request. The SDK requests the scope by default, and the API ignores it for a credential that does not hold it. With OAuth, a token without the scope gets HTTP 403.
@@ -405,6 +432,59 @@ download_url = download['data']['data']['url']  # Valid for 15 minutes
 `get_session_document` returns HTTP 410 when Signa no longer retains the document. The API limits `get_session_document` to 30 requests per minute and 600 requests per hour, for each business. Above these limits, the API returns HTTP 429.
 
 Anyone who has the download link can download the document until the link expires. Do not log the link. Do not send it to a client that you do not control.
+
+### Signa ID Release
+
+With Signa ID, a person who is already verified releases their data to your business in a popup. Your server creates a release request, your page opens the popup, and your server exchanges the code for the data.
+
+The release methods need an OAuth access token with the `signa-id:release` scope. API keys cannot call them. No scope bundle contains this scope, so select it by name when you create the credential. Signa ID release must also be enabled for your business.
+
+**Note:** The SDK does not request `signa-id:release` by default. Send `oauth_scope` with that scope, preferably on a dedicated credential.
+
+```python
+signa_id_client = Blaaiz(
+    client_id=os.environ['BLAAIZ_SIGNA_ID_CLIENT_ID'],
+    client_secret=os.environ['BLAAIZ_SIGNA_ID_CLIENT_SECRET'],
+    oauth_scope='signa-id:release',
+)
+
+# 1. Create the request. Send request_token to your page.
+created = signa_id_client.signa_id.create_release_request({
+    'idempotency_key': "release-user-10482",
+    'purpose': "Open your trading account",
+    'scopes': ["identity", "id_document", "document_images"],  # also: "address"
+    'origin': "https://yourapp.com",  # the exact window.location.origin of your page
+    'reference': "user_10482",  # optional
+})
+release_id = created['data']['data']['id']
+request_token = created['data']['data']['request_token']
+
+# 2. In your page: const { code } = await signa.requestData({ requestToken })
+
+# 3. Exchange the code from your server. The code works one time, for 5 minutes.
+exchanged = signa_id_client.signa_id.exchange_release_code(code)
+release = exchanged['data']['data']['release']  # check that release['id'] == release_id
+data = exchanged['data']['data']['data']
+
+# Read the release again during the 30-day access window
+current = signa_id_client.signa_id.get_release(release_id)
+
+# Download one document image. The URL expires in 15 minutes.
+image = signa_id_client.signa_id.get_release_document(release_id, data['document_images'][0]['id'])
+```
+
+The release request expires 30 minutes after the create. `get_release` returns `data` as `None` before the exchange and when `release.access.status` is not `ACTIVE`. Each create and exchange endpoint allows 30 requests each minute for each business.
+
+**Warning:** The released data is personal data. Do not log it and do not cache it.
+
+To check if a wallet belongs to a verified Signa ID, call `get_wallet_status`. The endpoint needs no authentication and returns no personal data.
+
+```python
+status = blaaiz.signa_id.get_wallet_status('0x1234...abcd', chain_id=8453)
+print(status['data']['verified'], status['data']['level'])
+```
+
+The wallet status response is at the root of the body, with no `message` and no `data` wrapper.
 
 ### Collections
 
@@ -737,6 +817,8 @@ transaction = blaaiz.transactions.get("order-1234")
 print(f'Merchant reference: {transaction["data"]["merchant_reference"]}')
 ```
 
+For a collection, `source_information` carries the payer details. It has these payer keys for a bank transfer: `account_name`, `account_number`, `bank_name`, `sort_code`, `bank_swift_code`, `description`, and `narration`. Each key is always present. A key is `None` when the collection method does not supply it. Only NGN collections set `narration`. For payouts and swaps, all of these keys are `None`. For an Interac collection, `collection_email` and `collection_name` hold the payer.
+
 ### Banks & Currencies
 
 #### List Banks
@@ -899,6 +981,8 @@ print(f'Webhook URLs: {webhook_config["data"]}')
 ```
 
 #### Verify Signa Webhooks
+
+Signa and Signa ID callbacks go to your `kyc_url`. The events are `merchant.kyc.session.completed`, `merchant.kyc.session.expired`, and `signa_id.grant.revoked`. After `signa_id.grant.revoked`, the release methods return no data for `data.release_id`.
 
 Signa callbacks use the same `x-blaaiz-timestamp` and `x-blaaiz-signature` headers and HMAC-SHA256 scheme as collection and payout webhooks. Keep the request body raw. Then call `construct_event` (or `verify_signature`) on `blaaiz.webhooks`.
 
