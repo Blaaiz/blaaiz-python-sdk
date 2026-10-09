@@ -93,5 +93,9 @@ class PayoutService:
             self._validate_required_fields(
                 payout_data, ["wallet_address", "wallet_token", "wallet_network"]
             )
+        elif method == "mobile_money":
+            self._validate_required_fields(
+                payout_data, ["phone_number", "mobile_money_operator_id", "account_name"]
+            )
 
         return self.client.make_request("POST", "/api/external/payout", payout_data)

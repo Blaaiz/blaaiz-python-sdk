@@ -9,6 +9,7 @@ from .wallet import WalletService
 from .virtual_bank_account import VirtualBankAccountService
 from .transaction import TransactionService
 from .bank import BankService
+from .momo_operator import MomoOperatorService
 from .currency import CurrencyService
 from .fees import FeesService
 from .file import FileService
@@ -26,6 +27,7 @@ __all__ = [
     "VirtualBankAccountService",
     "TransactionService",
     "BankService",
+    "MomoOperatorService",
     "CurrencyService",
     "FeesService",
     "FileService",

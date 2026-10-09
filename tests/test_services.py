@@ -12,6 +12,7 @@ from blaaiz.services import (
     VirtualBankAccountService,
     TransactionService,
     BankService,
+    MomoOperatorService,
     CurrencyService,
     FeesService,
     FileService,
@@ -613,6 +614,56 @@ class TestPayoutService(unittest.TestCase):
 
         self.assertIn("account_number is required", str(context.exception))
 
+    def test_initiate_mobile_money_without_required_fields(self):
+        """Mobile money payouts need phone_number, mobile_money_operator_id and account_name."""
+        payout_data = {
+            "wallet_id": "wallet-id",
+            "customer_id": "customer-id",
+            "method": "mobile_money",
+            "from_amount": 1000,
+            "from_currency_id": "USD",
+            "to_currency_id": "KES",
+        }
+
+        with self.assertRaises(ValueError) as context:
+            self.service.initiate(payout_data)
+        self.assertIn("phone_number is required", str(context.exception))
+
+        payout_data["phone_number"] = "+254700000000"
+        with self.assertRaises(ValueError) as context:
+            self.service.initiate(payout_data)
+        self.assertIn("mobile_money_operator_id is required", str(context.exception))
+
+        payout_data["mobile_money_operator_id"] = "operator-id"
+        with self.assertRaises(ValueError) as context:
+            self.service.initiate(payout_data)
+        self.assertIn("account_name is required", str(context.exception))
+
+        self.mock_client.make_request.assert_not_called()
+
+    def test_initiate_mobile_money_payout(self):
+        """A valid mobile money payout is forwarded verbatim to the API."""
+        payout_data = {
+            "wallet_id": "wallet-id",
+            "customer_id": "customer-id",
+            "method": "mobile_money",
+            "from_amount": 1000,
+            "from_currency_id": "USD",
+            "to_currency_id": "KES",
+            "phone_number": "+254700000000",
+            "mobile_money_operator_id": "operator-id",
+            "account_name": "Jane Doe",
+        }
+
+        self.mock_client.make_request.return_value = {"data": {"transaction_id": "tx-id"}}
+
+        result = self.service.initiate(payout_data)
+
+        self.mock_client.make_request.assert_called_once_with(
+            "POST", "/api/external/payout", payout_data
+        )
+        self.assertEqual(result["data"]["transaction_id"], "tx-id")
+
     def test_initiate_interac_without_required_fields(self):
         """Test Interac payout without required fields."""
         payout_data = {
@@ -796,6 +847,43 @@ class TestBankService(unittest.TestCase):
             self.service.verify_iban({})
 
         self.assertIn("iban is required", str(context.exception))
+
+
+class TestMomoOperatorService(unittest.TestCase):
+    """Test cases for MomoOperatorService."""
+
+    def setUp(self):
+        """Set up test service."""
+        self.mock_client = MagicMock()
+        self.service = MomoOperatorService(self.mock_client)
+
+    def test_list_without_filters(self):
+        """Listing operators without filters hits the bare endpoint."""
+        self.mock_client.make_request.return_value = {"data": []}
+
+        self.service.list()
+
+        self.mock_client.make_request.assert_called_once_with("GET", "/api/external/momo-operator")
+
+    def test_list_with_filters(self):
+        """Listing operators forwards currency_id/country_id filters as query params."""
+        self.mock_client.make_request.return_value = {"data": []}
+
+        self.service.list({"currency_id": "currency-id", "country_id": 5})
+
+        args, _ = self.mock_client.make_request.call_args
+        self.assertEqual(args[0], "GET")
+        self.assertTrue(args[1].startswith("/api/external/momo-operator?"))
+        self.assertIn("currency_id=currency-id", args[1])
+        self.assertIn("country_id=5", args[1])
+
+    def test_list_skips_none_filters(self):
+        """Filters set to None are left out of the query string."""
+        self.mock_client.make_request.return_value = {"data": []}
+
+        self.service.list({"currency_id": None, "country_id": None})
+
+        self.mock_client.make_request.assert_called_once_with("GET", "/api/external/momo-operator")
 
 
 class TestRateService(unittest.TestCase):

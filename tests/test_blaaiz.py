@@ -29,6 +29,7 @@ class TestBlaaiz(unittest.TestCase):
         self.assertIsNotNone(self.blaaiz.virtual_bank_accounts)
         self.assertIsNotNone(self.blaaiz.transactions)
         self.assertIsNotNone(self.blaaiz.banks)
+        self.assertIsNotNone(self.blaaiz.momo_operators)
         self.assertIsNotNone(self.blaaiz.currencies)
         self.assertIsNotNone(self.blaaiz.fees)
         self.assertIsNotNone(self.blaaiz.files)
