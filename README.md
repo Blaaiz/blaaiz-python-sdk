@@ -817,7 +817,7 @@ transaction = blaaiz.transactions.get("order-1234")
 print(f'Merchant reference: {transaction["data"]["merchant_reference"]}')
 ```
 
-For a collection, `source_information` carries the payer details. It has these keys: `account_name`, `account_number`, `bank_name`, `sort_code`, `bank_swift_code`, `description`, and `narration`. Each key is always present. A key is `None` when the collection method does not supply it. Only NGN collections set `narration`. For payouts and swaps, all keys are `None`.
+For a collection, `source_information` carries the payer details. It has these payer keys for a bank transfer: `account_name`, `account_number`, `bank_name`, `sort_code`, `bank_swift_code`, `description`, and `narration`. Each key is always present. A key is `None` when the collection method does not supply it. Only NGN collections set `narration`. For payouts and swaps, all of these keys are `None`. For an Interac collection, `collection_email` and `collection_name` hold the payer.
 
 ### Banks & Currencies
 
