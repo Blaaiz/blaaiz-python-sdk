@@ -121,7 +121,7 @@ def api_status():
         {
             "connected": is_connected,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "sdk_version": "1.6.0",  # x-release-please-version
+            "sdk_version": "1.7.0",  # x-release-please-version
         }
     )
 
