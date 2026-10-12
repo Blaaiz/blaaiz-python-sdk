@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/Blaaiz/blaaiz-python-sdk/compare/v1.6.0...v1.7.0) (2026-10-12)
+
+
+### Features
+
+* **signa:** add Signa ID release, web SDK access tokens and customer linking ([7810d90](https://github.com/Blaaiz/blaaiz-python-sdk/commit/7810d90c166ceb3a58cbbefa58704a9581c5f3e3))
+
 ## [1.6.0](https://github.com/Blaaiz/blaaiz-python-sdk/compare/v1.5.0...v1.6.0) (2026-10-09)
 
 

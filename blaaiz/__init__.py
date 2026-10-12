@@ -27,7 +27,7 @@ from .services import (
     SignaIdService,
 )
 
-__version__ = "1.6.0"  # x-release-please-version
+__version__ = "1.7.0"  # x-release-please-version
 __author__ = "Blaaiz Team"
 __email__ = "onboarding@blaaiz.com"
 
