@@ -242,6 +242,30 @@ class TestCustomerService(unittest.TestCase):
             "POST", "/api/external/customer/customer-id/upgrade-kyb-scope", upgrade_data
         )
 
+    def test_link_kyc_session(self):
+        """Linking a KYC session sends the Signa session id."""
+        self.mock_client.make_request.return_value = {"data": {}}
+
+        self.service.link_kyc_session("customer-id", "session-1")
+
+        self.mock_client.make_request.assert_called_once_with(
+            "POST",
+            "/api/external/customer/customer-id/kyc-session",
+            {"signa_session_id": "session-1"},
+        )
+
+    def test_link_kyc_session_validates_ids_without_http_call(self):
+        """Both ids are required and no request is made on invalid input."""
+        with self.assertRaises(ValueError) as context:
+            self.service.link_kyc_session("", "session-1")
+        self.assertIn("Customer ID is required", str(context.exception))
+
+        with self.assertRaises(ValueError) as context:
+            self.service.link_kyc_session("customer-id", "")
+        self.assertIn("signa_session_id is required", str(context.exception))
+
+        self.mock_client.make_request.assert_not_called()
+
     def test_upgrade_kyb_scope_missing_owners(self):
         """Upgrading KYB scope requires a non-empty owners array."""
         with self.assertRaises(ValueError) as context:

@@ -217,6 +217,31 @@ class CustomerService:
             "POST", f"/api/external/customer/{customer_id}/upgrade-kyb-scope", upgrade_data
         )
 
+    def link_kyc_session(self, customer_id: str, signa_session_id: str) -> Dict[str, Any]:
+        """
+        Verify an individual customer with an approved Signa session of your
+        business. Requires the ``customer:write`` and
+        ``compliance-kyc:pii:read`` scopes.
+
+        Args:
+            customer_id: Customer ID
+            signa_session_id: Signa session ID
+
+        Returns:
+            API response containing the updated customer
+        """
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+
+        if not signa_session_id:
+            raise ValueError("signa_session_id is required")
+
+        return self.client.make_request(
+            "POST",
+            f"/api/external/customer/{customer_id}/kyc-session",
+            {"signa_session_id": signa_session_id},
+        )
+
     def delete_owner(self, customer_id: str, owner_id: str) -> Dict[str, Any]:
         """
         Delete a beneficial owner from a business customer.

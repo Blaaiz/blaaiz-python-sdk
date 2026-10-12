@@ -43,7 +43,8 @@ class SignaService:
                 replays the same session) and ``requirements`` (1-4 distinct
                 values from DOCUMENTS, SELFIE, FACE_MATCH, PROOF_OF_ADDRESS).
                 ``fulfilment_mode`` (HOSTED or HEADLESS) and ``applicant``
-                (first_name, last_name, dob, country) are optional.
+                (first_name, last_name, dob, country) are optional, as is
+                ``redirect_url`` (an https URL on your site).
 
         Returns:
             API response containing session data
@@ -181,6 +182,23 @@ class SignaService:
 
         return self.client.make_request(
             "POST", f"{BASE_PATH}/{self._encode(session_id)}/verification-link"
+        )
+
+    def issue_access_token(self, session_id: str) -> Dict[str, Any]:
+        """
+        Issue a web SDK access token for a hosted session. HOSTED sessions only.
+        The token is a bearer credential: do not log it or put it in a URL.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            API response containing ``access_token`` and ``expires_at``
+        """
+        self._validate_session_id(session_id)
+
+        return self.client.make_request(
+            "POST", f"{BASE_PATH}/{self._encode(session_id)}/access-token"
         )
 
     def get_session_applicant_data(self, session_id: str) -> Dict[str, Any]:

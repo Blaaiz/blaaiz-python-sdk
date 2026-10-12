@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from blaaiz.blaaiz import Blaaiz
 from blaaiz.error import BlaaizError
-from blaaiz.services import SignaService
+from blaaiz.services import SignaService, SignaIdService
 
 
 class TestBlaaiz(unittest.TestCase):
@@ -42,6 +42,10 @@ class TestBlaaiz(unittest.TestCase):
     def test_exposes_signa_resource(self):
         """The top-level client exposes signa as a SignaService instance."""
         self.assertIsInstance(self.blaaiz.signa, SignaService)
+
+    def test_exposes_signa_id_resource(self):
+        """The top-level client exposes signa_id as a SignaIdService instance."""
+        self.assertIsInstance(self.blaaiz.signa_id, SignaIdService)
 
     def test_initialization_with_custom_options(self):
         """Test initialization with custom options."""
